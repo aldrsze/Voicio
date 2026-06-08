@@ -1,6 +1,6 @@
 """Language detection module.
 
-Sentence-level classification of text as English (en) or Tagalog (tl).
+Sentence-level classification of text as English (en) or Spanish (es).
 Multiple backends are supported — swap via the `TT_DETECTOR` env-var.
 """
 
@@ -23,12 +23,12 @@ class Detector(Protocol):
     name: str
 
     def detect_lang(self, text: str) -> str:
-        """Return ``"en"`` or ``"tl"`` (or ``"un"`` for unknown)."""
+        """Return ``"en"`` or ``"es"`` (or ``"un"`` for unknown)."""
         ...
 
 
 def detect_sentence_lang(text: str, detector: Detector | None = None) -> str:
-    """Classify a single sentence as ``"en"``, ``"tl"``, or ``"un"``.
+    """Classify a single sentence as ``"en"``, ``"es"``, or ``"un"``.
 
     Short／empty sentences fall back to heuristic rules so we don't
     waste a model call on noise.
@@ -37,9 +37,9 @@ def detect_sentence_lang(text: str, detector: Detector | None = None) -> str:
     if not cleaned or len(cleaned) < 4:
         return "un"
 
-    # Fast heuristic: known Tagalog function words → skip the model
-    if _looks_tagalog(cleaned):
-        return "tl"
+    # Fast heuristic: known Spanish function words → skip the model
+    if _looks_spanish(cleaned):
+        return "es"
     if _looks_english(cleaned):
         return "en"
 
@@ -81,32 +81,45 @@ def split_sentences(text: str) -> list[str]:
 
 # ── Heuristics ────────────────────────────────────────────────────────────
 
-_TAGALOG_MARKERS: set[str] = {
-    "ang", "ng", "sa", "ay", "ito", "iyon", "sila", "kami", "tayo",
-    "mo", "ko", "niya", "nila", "aming", "inyo", "kaniya",
-    "po", "opo", "ho", "oho", "oo", "hindi", "wala", "mayroon",
-    "may", "meron", "mga", "mga", "kay", "kina", "sina", "nina",
-    "naman", "din", "rin", "daw", "raw", "pala", "kasi", "ba",
-    "nga", "pa", "na", "lang", "lamang", "talaga", "sana", "kaya",
-    "gawa", "ano", "sino", "saan", "kailan", "bakit", "paano",
-    "magkano", "ilan", "alin",
-    "kanina", "mamaya", "kahapon", "ngayon", "bukas",
-    "kumusta", "musta", "salamat", "walang-anuman",
-    "ate", "kuya", "tita", "tito", "lola", "lolo",
+_SPANISH_MARKERS: set[str] = {
+    "el", "la", "los", "las", "un", "una", "unos", "unas",
+    "y", "o", "pero", "sino", "porque", "que",
+    "de", "del", "en", "con", "para", "por", "sin", "sobre", "entre",
+    "es", "son", "está", "están", "estoy", "estamos", "soy", "eres",
+    "tengo", "tiene", "tenemos", "tienen",
+    "hace", "hago", "hacemos", "hacen",
+    "puedo", "puede", "podemos", "pueden",
+    "quiero", "quiere", "queremos", "quieren",
+    "voy", "va", "vamos", "van", "fue", "fui", "iba",
+    "he", "ha", "has", "han", "hemos",
+    "me", "te", "se", "lo", "la", "le", "nos", "os",
+    "mi", "tu", "su", "mis", "tus", "sus", "nuestro",
+    "este", "esta", "esto", "ese", "esa", "eso", "aquel", "aquella",
+    "muy", "más", "menos", "tan", "tanto",
+    "no", "sí", "si", "también", "nunca", "siempre",
+    "bien", "mal", "gracias", "hola", "adiós",
+    "cuando", "donde", "como", "cuál", "cuáles",
+    "todo", "toda", "todos", "todas", "cada", "algo", "nada",
+    "quién", "quiénes", "qué",
+    "ayer", "hoy", "mañana", "ahora", "ya", "todavía",
+    "entonces", "luego", "después", "antes", "siempre",
+    "mucho", "poca", "muchos", "pocos",
+    "bueno", "buena", "malo", "mala", "grande", "pequeño",
+    "señor", "señora", "señorita", "don", "doña",
 }
 
 
-def _looks_tagalog(text: str) -> bool:
-    """Quick check — does *text* contain known Tagalog function words?"""
+def _looks_spanish(text: str) -> bool:
+    """Quick check — does *text* contain known Spanish function words?"""
     lower = text.lower().split()
-    return any(word in _TAGALOG_MARKERS for word in lower)
+    return any(word in _SPANISH_MARKERS for word in lower)
 
 
 def _looks_english(text: str) -> bool:
     """Quick check — does *text* appear unambiguously English?
 
     Currently a no-op placeholder for future heuristics (e.g. known
-    English-only contractions or articles not shared with Tagalog).
+    English-only contractions or articles not shared with Spanish).
     """
     _ = text
     return False
@@ -132,7 +145,7 @@ class _LangDetectDetector:
     def detect_lang(self, text: str) -> str:
         from langdetect import detect  # type: ignore[import-untyped]
         code = detect(text)[:2].lower()
-        return code if code in ("en", "tl") else "un"
+        return code if code in ("en", "es") else "un"
 
 
 class _FastTextDetector:
@@ -152,7 +165,7 @@ class _FastTextDetector:
     def detect_lang(self, text: str) -> str:
         labels, scores = self._model.predict(text.replace("\n", " "))
         code = labels[0].replace("__label__", "")[:2].lower()
-        return code if code in ("en", "tl") else "un"
+        return code if code in ("en", "es") else "un"
 
 
 class _LinguaDetector:
@@ -162,7 +175,7 @@ class _LinguaDetector:
 
     def __init__(self) -> None:
         from lingua import Language, LanguageDetectorBuilder  # type: ignore[import-untyped]
-        self._builder = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.TAGALOG)
+        self._builder = LanguageDetectorBuilder.from_languages(Language.ENGLISH, Language.SPANISH)
         self._detector = self._builder.build()
 
     def detect_lang(self, text: str) -> str:
@@ -170,8 +183,8 @@ class _LinguaDetector:
         result = self._detector.detect_language_of(text)
         if result == Language.ENGLISH:
             return "en"
-        if result == Language.TAGALOG:
-            return "tl"
+        if result == Language.SPANISH:
+            return "es"
         return "un"
 
 

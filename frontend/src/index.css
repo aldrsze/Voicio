@@ -1,0 +1,124 @@
+@import "tailwindcss";
+
+/* ── Custom theme ─────────────────────────────────────────────────── */
+@theme {
+  --color-cream: #f8f4ef;
+  --color-espresso: #2c1810;
+  --color-cocoa: #5c3a2a;
+  --color-mocha: #8b6b4e;
+  --color-terracotta: #c8684a;
+  --color-terracotta-light: #e08b6e;
+  --color-teal-dark: #1a5e5a;
+  --color-teal: #2b7a75;
+  --color-mango: #e8a840;
+  --color-mango-light: #f0c060;
+  --color-sand: #e8ddd0;
+  --color-linen: #f0e8dc;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+}
+
+/* ── Base ──────────────────────────────────────────────────────────── */
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background-color: var(--color-cream);
+  color: var(--color-espresso);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Gradient mesh ──────────────────────────────────────────────── */
+.bg-mesh {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--color-mango) 12%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 80% 90%, color-mix(in srgb, var(--color-terracotta) 8%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 50% at 10% 80%, color-mix(in srgb, var(--color-teal) 6%, transparent) 0%, transparent 60%);
+}
+
+/* ── Pulse ring for play button ─────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { transform: scale(1); opacity: 0.5; }
+  50%  { transform: scale(1.15); opacity: 0.1; }
+  100% { transform: scale(1); opacity: 0.5; }
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2.4s ease-in-out infinite;
+}
+
+/* ── Waveform animation ─────────────────────────────────────────── */
+@keyframes wave {
+  0%, 100% { transform: scaleY(0.25); }
+  50%      { transform: scaleY(1); }
+}
+.animate-wave {
+  animation: wave 0.75s ease-in-out infinite;
+}
+.animate-wave:nth-child(2) { animation-delay: 0.08s; }
+.animate-wave:nth-child(3) { animation-delay: 0.16s; }
+.animate-wave:nth-child(4) { animation-delay: 0.24s; }
+.animate-wave:nth-child(5) { animation-delay: 0.32s; }
+.animate-wave:nth-child(6) { animation-delay: 0.12s; }
+.animate-wave:nth-child(7) { animation-delay: 0.20s; }
+.animate-wave:nth-child(8) { animation-delay: 0.28s; }
+
+/* ── Fade-up entrance ───────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fade-up 0.55s ease-out both;
+}
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.10s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.20s; }
+.delay-5 { animation-delay: 0.25s; }
+
+/* ── Custom range slider ─────────────────────────────────────────── */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--color-sand);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-terracotta);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(44,24,16,0.18);
+  transition: transform 0.15s;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.18);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-terracotta);
+  cursor: pointer;
+  border: 3px solid white;
+  box-shadow: 0 1px 4px rgba(44,24,16,0.18);
+}
+
+/* ── Textarea custom scrollbar ──────────────────────────────────── */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+textarea::-webkit-scrollbar-thumb {
+  background: var(--color-mocha);
+  border-radius: 3px;
+}

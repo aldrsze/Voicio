@@ -1,4 +1,11 @@
-"""API route handlers for the TTS service."""
+"""API route handlers for the TTS service.
+
+NOTE: The API contract speaks "Tagalog" (the user-facing purpose) while
+the backend internals use Spanish Piper models — the closest accessible
+model for Tagalog. Translation happens at the route boundary:
+  - ``request.voice_tgl`` → ``voice_es`` param in the TTS pipeline
+  - ``es_*`` model files on disk → reported as ``"tl"`` language in voice lists
+"""
 
 from __future__ import annotations
 
@@ -39,6 +46,9 @@ async def tts(request: TTSRequest) -> Response:
     Returns a WAV file with ``Content-Type: audio/wav``. The backend
     automatically detects which sentences are English vs Tagalog and
     routes each segment to the corresponding Piper voice model.
+
+    *Tagalog segments are synthesised with a Spanish Piper model
+    (the closest accessible model).*
     """
     text = request.text.strip()
     if not text:
@@ -48,7 +58,7 @@ async def tts(request: TTSRequest) -> Response:
         wav_bytes = await synthesise_text(
             text,
             voice_en=request.voice_eng,
-            voice_tl=request.voice_tgl,
+            voice_es=request.voice_tgl,  # TL → Spanish model internally
             speed=request.speed,
         )
     except ValueError as exc:
@@ -73,13 +83,17 @@ async def tts(request: TTSRequest) -> Response:
 
 @router.get("/voices", response_model=VoicesResponse)
 async def list_voices() -> VoicesResponse:
-    """Return all available Piper voice models found on disk."""
+    """Return all available Piper voice models found on disk.
+
+    Spanish (``es_*``) models are reported as ``"tl"`` language —
+    they serve as the Tagalog voices.
+    """
     voices: list[VoiceInfo] = []
     model_dir = settings.models_dir
 
     if model_dir.is_dir():
         for onnx_file in sorted(model_dir.glob("*.onnx")):
-            voice_id = onnx_file.stem  # e.g. "en_US-lessac-medium"
+            voice_id = onnx_file.stem
             language = _infer_language(voice_id)
             voices.append(
                 VoiceInfo(
@@ -118,8 +132,12 @@ async def health() -> HealthResponse:
 
 
 def _infer_language(voice_id: str) -> str:
-    """Guess language from a Piper voice ID."""
+    """Guess language from a Piper voice ID.
+
+    ``es_*`` models are returned as ``"tl"`` — they fill the Tagalog
+    voice slot.
+    """
     parts = voice_id.split("_")
-    if len(parts) >= 1 and parts[0] == "tl":
+    if len(parts) >= 1 and parts[0] == "es":
         return "tl"
     return "en"

@@ -25,7 +25,7 @@ class SynthesisResult(NamedTuple):
 
     audio_bytes: bytes
     sample_rate: int
-    language: str  # "en" or "tl"
+    language: str  # "en" or "es"
 
 
 class PiperTTS:
@@ -67,7 +67,7 @@ class PiperTTS:
             Piper voice/model name. Falls back to the configured default
             for *language* when omitted.
         language:
-            ``"en"`` or ``"tl"`` — used only to pick a fallback voice.
+            ``"en"`` or ``"es"`` — used only to pick a fallback voice.
         speed:
             Playback speed multiplier (0.5 – 2.0). Piper applies this via
             ``--length-scale`` (inverse of speed).
@@ -139,8 +139,8 @@ class PiperTTS:
 
     @staticmethod
     def _default_voice(language: str) -> str:
-        if language == "tl":
-            return settings.voice_tagalog
+        if language == "es":
+            return settings.voice_spanish
         return settings.voice_english
 
     @staticmethod

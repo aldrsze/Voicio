@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class Segment(NamedTuple):
     """A contiguous block of same-language text ready for synthesis."""
 
-    language: str  # "en" or "tl"
+    language: str  # "en" or "es"
     text: str
 
 
@@ -30,7 +30,7 @@ async def synthesise_text(
     text: str,
     *,
     voice_en: str | None = None,
-    voice_tl: str | None = None,
+    voice_es: str | None = None,
     speed: float = 1.0,
 ) -> bytes:
     """Full pipeline: detect → segment → synthesise → stitch.
@@ -41,8 +41,8 @@ async def synthesise_text(
         User-supplied mixed-language input (max 5000 chars).
     voice_en:
         Override for the English Piper voice.
-    voice_tl:
-        Override for the Tagalog Piper voice.
+    voice_es:
+        Override for the Spanish Piper voice.
     speed:
         Playback speed multiplier (0.5 – 2.0).
 
@@ -70,7 +70,7 @@ async def synthesise_text(
     sample_rate: int | None = None
 
     for seg in segments:
-        voice = voice_tl if seg.language == "tl" else voice_en
+        voice = voice_es if seg.language == "es" else voice_en
         result = await synthesise_async(seg.text, voice=voice, language=seg.language, speed=speed)
         chunks.append(result.audio_bytes)
         if sample_rate is None:
@@ -88,7 +88,7 @@ async def synthesise_text(
 def _classify(sentence: str) -> tuple[str, str]:
     """Return ``(language_code, sentence)``."""
     lang = detect_sentence_lang(sentence)
-    if lang not in ("en", "tl"):
+    if lang not in ("en", "es"):
         lang = "en"  # fallback
     return lang, sentence
 

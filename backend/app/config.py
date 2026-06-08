@@ -33,7 +33,7 @@ class Settings:
     piper_binary: str = os.getenv("TT_PIPER_BINARY", "piper")
 
     voice_english: str = os.getenv("TT_VOICE_EN", "en_US-lessac-medium")
-    voice_tagalog: str = os.getenv("TT_VOICE_TL", "tl_PH-male-medium")
+    voice_spanish: str = os.getenv("TT_VOICE_ES", "es_ES-davefx-medium")
 
     # ── Limits (per PRD) ──────────────────────────────────────────────
     max_text_length: int = 5000

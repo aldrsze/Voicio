@@ -21,7 +21,10 @@ class TTSRequest(BaseModel):
     )
     voice_tgl: str | None = Field(
         None,
-        description="Override for the Tagalog Piper voice model name",
+        description=(
+            "Override for the Tagalog voice model name. "
+            "Internally mapped to the closest available model (Spanish)."
+        ),
     )
     speed: float = Field(
         1.0,
