@@ -32,7 +32,7 @@ class Settings:
     # Piper binary path (auto-resolved on PATH if not set)
     piper_binary: str = os.getenv("TT_PIPER_BINARY", "piper")
 
-    voice_english: str = os.getenv("TT_VOICE_EN", "en_US-lessac-medium")
+    voice_english: str = os.getenv("TT_VOICE_EN", "en_US-lessac-high")
     voice_spanish: str = os.getenv("TT_VOICE_ES", "es_ES-sharvard-medium")
 
     # ── Limits (per PRD) ──────────────────────────────────────────────

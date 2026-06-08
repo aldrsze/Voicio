@@ -11,7 +11,14 @@ langdetect>=1.0.9
 # Most accurate, heaviest dependency
 # lingua>=4.15.0
 
-# ── Audio processing (optional — stdlib wave module used by default) ─────
+# ── Tagalog TTS (MMS) — needs transformers + torch ───────────────────────
+# Uncomment for Tagalog speech synthesis via facebook/mms-tts-tgl.
+# These are large downloads (~2 GB total for torch):
+transformers>=4.45.0
+torch>=2.3.0
+# accelerate>=0.30.0   # optional: speeds up MMS inference
+
+# ── Audio processing (stdlib wave module used by default) ────────────────
 # pydub>=0.25.1
 # ffmpeg-python>=0.2.0
 

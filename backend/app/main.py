@@ -59,4 +59,4 @@ async def startup() -> None:
     logger.info("Voicio TTS starting — host=%s port=%s debug=%s", settings.host, settings.port, settings.debug)
     logger.info("Models directory: %s", settings.models_dir)
     logger.info("Detector backend: %s", settings.detector_backend)
-    logger.info("Default voices — en: %s  tl (via es model): %s", settings.voice_english, settings.voice_spanish)
+    logger.info("Default voices — en: %s (Piper)  tl: facebook/mms-tts-tgl (MMS-TTS)", settings.voice_english)

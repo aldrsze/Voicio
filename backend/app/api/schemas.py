@@ -22,8 +22,8 @@ class TTSRequest(BaseModel):
     voice_tgl: str | None = Field(
         None,
         description=(
-            "Override for the Tagalog voice model name. "
-            "Internally mapped to the closest available model (Spanish)."
+            "Deprecated — Tagalog uses the fixed facebook/mms-tts-tgl model. "
+            "This field is accepted but ignored for backwards compatibility."
         ),
     )
     speed: float = Field(
@@ -41,6 +41,7 @@ class VoiceInfo(BaseModel):
     name: str = Field(description="Human-readable voice name")
     language: str = Field(description="Language code: 'en' or 'tl'")
     quality: str = Field(default="medium", description="Quality tier: low, medium, high")
+    engine: str = Field(default="piper", description="TTS engine: 'piper' or 'mms'")
 
 
 class VoicesResponse(BaseModel):
@@ -54,4 +55,5 @@ class HealthResponse(BaseModel):
 
     status: str = Field(default="ok")
     piper_available: bool = Field(description="Whether the piper binary was found on PATH")
-    models_found: int = Field(description="Number of .onnx model files detected")
+    mms_available: bool = Field(description="Whether the MMS-TTS Tagalog model is loaded")
+    models_found: int = Field(description="Number of Piper .onnx model files detected")

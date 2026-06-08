@@ -5,6 +5,8 @@ tts-app-PRD.md
 # Large model binaries — download from https://huggingface.co/rhasspy/piper-voices
 backend/models/*.onnx
 backend/models/*.onnx.json
+backend/models/**/*.onnx
+backend/models/**/*.onnx.json
 
 # Python cache
 __pycache__/

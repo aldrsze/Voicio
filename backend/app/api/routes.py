@@ -1,10 +1,9 @@
 """API route handlers for the TTS service.
 
-NOTE: The API contract speaks "Tagalog" (the user-facing purpose) while
-the backend internals use Spanish Piper models — the closest accessible
-model for Tagalog. Translation happens at the route boundary:
-  - ``request.voice_tgl`` → ``voice_es`` param in the TTS pipeline
-  - ``es_*`` model files on disk → reported as ``"tl"`` language in voice lists
+English speech → Piper TTS (with high-quality .onnx voice models)
+Tagalog speech → MMS-TTS (facebook/mms-tts-tgl via Hugging Face)
+
+The API contract exposes both languages natively — no more Spanish model hack.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ from fastapi.responses import Response
 from app.api.schemas import HealthResponse, TTSRequest, VoiceInfo, VoicesResponse
 from app.config import settings
 from app.core.audio import synthesise_text
-from app.core.tts import get_tts
+from app.core.tts import get_piper, get_mms
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +44,10 @@ async def tts(request: TTSRequest) -> Response:
 
     Returns a WAV file with ``Content-Type: audio/wav``. The backend
     automatically detects which sentences are English vs Tagalog and
-    routes each segment to the corresponding Piper voice model.
+    routes each segment to the correct TTS engine:
 
-    *Tagalog segments are synthesised with a Spanish Piper model
-    (the closest accessible model).*
+    - **English** → Piper TTS (local .onnx voice models)
+    - **Tagalog** → MMS-TTS (facebook/mms-tts-tgl via Hugging Face)
     """
     text = request.text.strip()
     if not text:
@@ -58,7 +57,6 @@ async def tts(request: TTSRequest) -> Response:
         wav_bytes = await synthesise_text(
             text,
             voice_en=request.voice_eng,
-            voice_es=request.voice_tgl,  # TL → Spanish model internally
             speed=request.speed,
         )
     except ValueError as exc:
@@ -83,28 +81,39 @@ async def tts(request: TTSRequest) -> Response:
 
 @router.get("/voices", response_model=VoicesResponse)
 async def list_voices() -> VoicesResponse:
-    """Return all available Piper voice models found on disk.
-
-    Spanish (``es_*``) models are reported as ``"tl"`` language —
-    they serve as the Tagalog voices.
-    """
+    """Return all available Piper voice models + MMS-TTS Tagalog model."""
     voices: list[VoiceInfo] = []
     model_dir = settings.models_dir
 
+    # 1. Scan local Piper .onnx models (English)
     if model_dir.is_dir():
         for onnx_file in sorted(model_dir.glob("*.onnx")):
             voice_id = onnx_file.stem
-            language = _infer_language(voice_id)
-            voices.append(
-                VoiceInfo(
-                    id=voice_id,
-                    name=voice_id,
-                    language=language,
+            # Only show English models via Piper
+            if voice_id.startswith("en_"):
+                voices.append(
+                    VoiceInfo(
+                        id=voice_id,
+                        name=voice_id,
+                        language="en",
+                        engine="piper",
+                    )
                 )
-            )
+
+    # 2. Add MMS-TTS Tagalog model (always available if dependencies installed)
+    mms = get_mms()
+    voices.append(
+        VoiceInfo(
+            id="facebook/mms-tts-tgl",
+            name="MMS-TTS Tagalog",
+            language="tl",
+            quality="high",
+            engine="mms",
+        )
+    )
 
     if not voices:
-        logger.warning("No .onnx model files found in %s", model_dir)
+        logger.warning("No voices available.")
 
     return VoicesResponse(voices=voices)
 
@@ -115,29 +124,15 @@ async def list_voices() -> VoicesResponse:
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Lightweight health-check endpoint."""
-    tts = get_tts()
-    piper_available = tts._binary is not None  # noqa: SLF001 — pragmatic for health check
+    piper = get_piper()
+    mms = get_mms()
 
     model_dir = settings.models_dir
     models_found = len(list(model_dir.glob("*.onnx"))) if model_dir.is_dir() else 0
 
     return HealthResponse(
         status="ok",
-        piper_available=piper_available,
+        piper_available=piper.is_available(),
+        mms_available=mms.is_available(),
         models_found=models_found,
     )
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────
-
-
-def _infer_language(voice_id: str) -> str:
-    """Guess language from a Piper voice ID.
-
-    ``es_*`` models are returned as ``"tl"`` — they fill the Tagalog
-    voice slot.
-    """
-    parts = voice_id.split("_")
-    if len(parts) >= 1 and parts[0] == "es":
-        return "tl"
-    return "en"

@@ -10,7 +10,7 @@ services:
       - TT_PORT=8000
       - TT_DEBUG=${TT_DEBUG:-false}
       - TT_DETECTOR=${TT_DETECTOR:-langdetect}
-      - TT_VOICE_EN=${TT_VOICE_EN:-en_US-lessac-medium}
+      - TT_VOICE_EN=${TT_VOICE_EN:-en_US-lessac-high}
       - TT_VOICE_ES=${TT_VOICE_ES:-es_ES-sharvard-medium}
       - TT_CORS_ORIGINS=${TT_CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
     volumes:
