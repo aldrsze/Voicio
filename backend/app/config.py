@@ -15,8 +15,8 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Settings:
     # ── Paths ──────────────────────────────────────────────────────────
-    # Root of the backend directory (two levels up from this file)
-    base_dir: Path = Path(__file__).resolve().parent.parent.parent
+    # Root of the backend directory (two levels up from this file: app/ → backend/)
+    base_dir: Path = Path(__file__).resolve().parent.parent
     models_dir: Path = field(default_factory=lambda: _resolve_models_dir())
 
     # ── Server ─────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ class Settings:
     piper_binary: str = os.getenv("TT_PIPER_BINARY", "piper")
 
     voice_english: str = os.getenv("TT_VOICE_EN", "en_US-lessac-medium")
-    voice_spanish: str = os.getenv("TT_VOICE_ES", "es_ES-davefx-medium")
+    voice_spanish: str = os.getenv("TT_VOICE_ES", "es_ES-sharvard-medium")
 
     # ── Limits (per PRD) ──────────────────────────────────────────────
     max_text_length: int = 5000
@@ -51,7 +51,7 @@ def _resolve_models_dir() -> Path:
     env_path = os.getenv("TT_MODELS_DIR")
     if env_path:
         return Path(env_path).resolve()
-    return (Path(__file__).resolve().parent.parent.parent / "models").resolve()
+    return (Path(__file__).resolve().parent.parent / "models").resolve()
 
 
 def _parse_cors() -> list[str]:
