@@ -1,0 +1,10 @@
+Place Piper .onnx and .json model files here.
+
+Expected naming convention:
+    en_US-lessac-medium.onnx
+    en_US-lessac-medium.json
+    tl_PH-male-medium.onnx
+    tl_PH-male-medium.json
+
+Model files can be downloaded from:
+    https://huggingface.co/rhasspy/piper-voices

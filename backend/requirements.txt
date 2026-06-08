@@ -1,0 +1,19 @@
+# ── Web framework ─────────────────────────────────────────────────────────
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.0.0
+
+# ── Language detection (pick at least one) ────────────────────────────────
+# Pure-Python, no model download — good default
+langdetect>=1.0.9
+# Faster, needs quantised model file (~10 MB download)
+# fasttext>=0.9.2
+# Most accurate, heaviest dependency
+# lingua>=4.15.0
+
+# ── Audio processing (optional — stdlib wave module used by default) ─────
+# pydub>=0.25.1
+# ffmpeg-python>=0.2.0
+
+# ── Utilities ─────────────────────────────────────────────────────────────
+python-multipart>=0.0.9

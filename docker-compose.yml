@@ -1,0 +1,35 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${TT_PORT:-8000}:8000"
+    environment:
+      - TT_HOST=0.0.0.0
+      - TT_PORT=8000
+      - TT_DEBUG=${TT_DEBUG:-false}
+      - TT_DETECTOR=${TT_DETECTOR:-langdetect}
+      - TT_VOICE_EN=${TT_VOICE_EN:-en_US-lessac-medium}
+      - TT_VOICE_TL=${TT_VOICE_TL:-tl_PH-male-medium}
+      - TT_CORS_ORIGINS=${TT_CORS_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    volumes:
+      # Mount models directory for hot-swapping voice files without rebuild
+      - ./backend/models:/app/models:ro
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+
+  # Frontend service — uncomment once the Vite app is scaffolded
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "5173:5173"
+  #   environment:
+  #     - VITE_API_URL=http://localhost:8000
+  #   depends_on:
+  #     - backend
