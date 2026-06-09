@@ -25,7 +25,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // Sync HTML class
   useEffect(() => {
+    document.documentElement.classList.add("theme-transitioning");
     document.documentElement.classList.toggle("dark", theme === "dark");
+    const timer = setTimeout(() => {
+      document.documentElement.classList.remove("theme-transitioning");
+    }, 50);
+    return () => clearTimeout(timer);
   }, [theme]);
 
   // Save to storage

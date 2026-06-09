@@ -29,6 +29,7 @@ export function GeneratorPage() {
   const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [format, setFormat] = useState<string>("wav");
 
   // History
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -88,7 +89,7 @@ export function GeneratorPage() {
 
   // Generate speech
   const generateWithVoice = useCallback(
-    async (voiceId: string, text: string, lang: string, spd: number) => {
+    async (voiceId: string, text: string, lang: string, spd: number, fmt: string) => {
       let modelOpts: UploadModelOptions | undefined;
       if (importedVoiceIds.has(voiceId)) {
         const stored = await loadModel(voiceId);
@@ -100,7 +101,7 @@ export function GeneratorPage() {
           };
         }
       }
-      generate(text, lang, voiceId, spd, modelOpts);
+      generate(text, lang, voiceId, spd, modelOpts, fmt);
     },
     [importedVoiceIds, generate],
   );
@@ -142,6 +143,7 @@ export function GeneratorPage() {
             speed,
             timestamp: new Date(),
             audioUrl: historyUrl,
+            format,
           };
 
           setHistory((prev) => {
@@ -159,7 +161,7 @@ export function GeneratorPage() {
           });
         });
     }
-  }, [status, audioUrl, text, selectedVoice, speed, byLanguage, autoPlay, play]);
+  }, [status, audioUrl, text, selectedVoice, speed, byLanguage, autoPlay, play, format]);
 
   // Set default voice
   const [initialized, setInitialized] = useState(false);
@@ -207,8 +209,8 @@ export function GeneratorPage() {
   // Generate handler
   const handleGenerate = useCallback(() => {
     if (!hasText || !selectedVoice || status === "generating") return;
-    generateWithVoice(selectedVoice, text, selectedLanguage, speed);
-  }, [text, selectedLanguage, selectedVoice, speed, hasText, status, generateWithVoice]);
+    generateWithVoice(selectedVoice, text, selectedLanguage, speed, format);
+  }, [text, selectedLanguage, selectedVoice, speed, format, hasText, status, generateWithVoice]);
 
   // Text input handler
   const handleTextChange = useCallback(
@@ -222,12 +224,12 @@ export function GeneratorPage() {
 
       if (autoGenerate && newText.trim().length > 0 && selectedVoice) {
         textDebounceRef.current = setTimeout(
-          () => generateWithVoice(selectedVoice, newText, selectedLanguage, speed),
+          () => generateWithVoice(selectedVoice, newText, selectedLanguage, speed, format),
           5000,
         );
       }
     },
-    [autoGenerate, selectedVoice, selectedLanguage, speed, generateWithVoice],
+    [autoGenerate, selectedVoice, selectedLanguage, speed, format, generateWithVoice],
   );
 
   // Cancel debounce
@@ -256,10 +258,10 @@ export function GeneratorPage() {
             break;
           }
         }
-        generateWithVoice(voiceId, text, lang, speed);
+        generateWithVoice(voiceId, text, lang, speed, format);
       }
     },
-    [autoGenerate, hasText, text, speed, mergedByLanguage, generateWithVoice],
+    [autoGenerate, hasText, text, speed, format, mergedByLanguage, generateWithVoice],
   );
 
   // Speed change handler
@@ -272,12 +274,12 @@ export function GeneratorPage() {
           clearTimeout(speedDebounceRef.current);
         }
         speedDebounceRef.current = setTimeout(
-          () => generateWithVoice(selectedVoice, text, selectedLanguage, newSpeed),
+          () => generateWithVoice(selectedVoice, text, selectedLanguage, newSpeed, format),
           300,
         );
       }
     },
-    [autoGenerate, hasText, selectedVoice, text, selectedLanguage, generateWithVoice],
+    [autoGenerate, hasText, selectedVoice, text, selectedLanguage, format, generateWithVoice],
   );
 
   // Keyboard shortcut
@@ -286,24 +288,24 @@ export function GeneratorPage() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         if (hasText && selectedVoice && status !== "generating") {
           e.preventDefault();
-          generateWithVoice(selectedVoice, text, selectedLanguage, speed);
+          generateWithVoice(selectedVoice, text, selectedLanguage, speed, format);
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [hasText, selectedVoice, selectedLanguage, speed, status, generateWithVoice]);
+  }, [hasText, selectedVoice, selectedLanguage, speed, format, status, generateWithVoice]);
 
   const handleDownload = useCallback(() => {
     if (!audioUrl) return;
 
     const a = document.createElement("a");
     a.href = audioUrl;
-    a.download = "voicio-output.wav";
+    a.download = `voicio-output.${format}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }, [audioUrl]);
+  }, [audioUrl, format]);
 
   // History playback
   const handleHistoryPlay = useCallback(
@@ -324,7 +326,8 @@ export function GeneratorPage() {
   const handleHistoryDownload = useCallback((entry: HistoryEntry) => {
     const a = document.createElement("a");
     a.href = entry.audioUrl;
-    a.download = "voicio-output.wav";
+    const ext = entry.format || "wav";
+    a.download = `voicio-output.${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -384,6 +387,36 @@ export function GeneratorPage() {
                     onChange={setAutoPlay}
                     disabled={status === "generating"}
                   />
+                </div>
+              </div>
+
+              {/* Format Selector */}
+              <div className="flex items-center justify-between gap-3 border-t border-black/5 pt-4 dark:border-white/5">
+                <span className="font-sans text-sm font-semibold tracking-wide text-black dark:text-white">
+                  Format
+                </span>
+                <div className="flex">
+                  {(["wav", "mp3", "ogg"] as const).map((fmt, i) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      onClick={() => setFormat(fmt)}
+                      disabled={status === "generating"}
+                      className={`
+                        border px-3.5 py-1.5 font-sans text-xs font-semibold uppercase tracking-wide
+                        transition-all duration-150
+                        disabled:cursor-not-allowed disabled:opacity-50
+                        ${i > 0 ? "-ml-px" : ""}
+                        ${
+                          format === fmt
+                            ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black"
+                            : "border-black/15 bg-white text-black/40 hover:bg-black/5 dark:border-white/15 dark:bg-transparent dark:text-white/40 dark:hover:bg-white/10"
+                        }
+                      `}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>

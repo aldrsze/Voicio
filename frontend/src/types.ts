@@ -22,6 +22,7 @@ export interface TTSRequest {
   language?: string;
   voice?: string;
   speed?: number;
+  format?: string;
 }
 
 export type AppStatus =

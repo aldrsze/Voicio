@@ -157,3 +157,15 @@ textarea::-webkit-scrollbar-thumb {
 .dark textarea::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.25);
 }
+
+/* Disable transitions on buttons and text boxes during theme switch */
+.theme-transitioning,
+.theme-transitioning button,
+.theme-transitioning input,
+.theme-transitioning textarea,
+.theme-transitioning select,
+.theme-transitioning span,
+.theme-transitioning div {
+  transition: none !important;
+}
+

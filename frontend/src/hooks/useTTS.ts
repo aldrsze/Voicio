@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { AppStatus } from "../types";
 
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export interface TTSState {
   status: AppStatus;
@@ -57,6 +57,7 @@ export function useTTS() {
       voice?: string,
       speed?: number,
       uploadedModel?: UploadModelOptions, // Optional local model info
+      format?: string,
     ) => {
       cleanup();
       setState({ status: "generating", error: null, audioUrl: null });
@@ -72,6 +73,7 @@ export function useTTS() {
           const formData = new FormData();
           formData.append("text", text);
           formData.append("speed", String(speed ?? 0.85));
+          formData.append("format", format ?? "wav");
           formData.append(
             "model",
             new Blob([uploadedModel.onnxBytes]),
@@ -94,6 +96,7 @@ export function useTTS() {
             text,
             language: language ?? "en",
             speed: speed ?? 0.85,
+            format: format ?? "wav",
           };
 
           if (voice) {

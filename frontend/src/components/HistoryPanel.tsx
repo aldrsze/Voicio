@@ -8,6 +8,7 @@ export interface HistoryEntry {
   speed: number;
   timestamp: Date;
   audioUrl: string;
+  format?: string;
 }
 
 interface Props {

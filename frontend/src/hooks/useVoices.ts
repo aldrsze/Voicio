@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { VoiceInfo } from "../types";
 
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 // State (data-only)
 interface VoicesState {

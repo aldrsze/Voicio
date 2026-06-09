@@ -39,6 +39,12 @@ class TTSRequest(BaseModel):
         le=2.0,
         description="Playback speed multiplier (0.5 – 2.0)",
     )
+    format: str = Field(
+        "wav",
+        description="Output audio format: 'wav', 'mp3', or 'ogg'",
+        examples=["wav", "mp3", "ogg"],
+    )
+
 
 
 class VoiceInfo(BaseModel):

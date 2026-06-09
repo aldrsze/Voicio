@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { listModels, loadModel, removeModel, saveModel, type StoredModel } from "../lib/modelStorage";
 
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 export interface CatalogVoice {
   id: string;

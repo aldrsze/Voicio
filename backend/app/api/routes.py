@@ -15,7 +15,7 @@ from app.api.schemas import (
     VoiceInfo,
 )
 from app.config import settings
-from app.core.audio import synthesise_text
+from app.core.audio import synthesise_text, _transcode
 from app.core.tts import (
     PiperTTS,
     check_edge_deps,
@@ -90,11 +90,12 @@ async def tts(request: TTSRequest) -> Response:
             )
 
     try:
-        wav_bytes = await synthesise_text(
+        audio_bytes = await synthesise_text(
             text,
             language=language,
             voice=voice,
             speed=request.speed,
+            format=request.format,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -104,11 +105,19 @@ async def tts(request: TTSRequest) -> Response:
         logger.exception("TTS synthesis failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    media_types = {
+        "wav": "audio/wav",
+        "mp3": "audio/mpeg",
+        "ogg": "audio/ogg",
+    }
+    fmt = request.format.lower()
+    m_type = media_types.get(fmt, "audio/wav")
+
     return Response(
-        content=wav_bytes,
-        media_type="audio/wav",
+        content=audio_bytes,
+        media_type=m_type,
         headers={
-            "Content-Disposition": "attachment; filename=voicio-output.wav",
+            "Content-Disposition": f"attachment; filename=voicio-output.{fmt}",
         },
     )
 
@@ -148,6 +157,10 @@ async def tts_with_model(request: Request) -> Response:
         speed = 0.85
     speed = max(settings.min_speed, min(speed, settings.max_speed))
 
+    target_format = (form.get("format") or "wav").strip().lower()
+    if target_format not in ("wav", "mp3", "ogg"):
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {target_format!r}")
+
     model_file: UploadFile | None = form.get("model")
     config_file: UploadFile | None = form.get("model_config")
 
@@ -182,11 +195,25 @@ async def tts_with_model(request: Request) -> Response:
         logger.exception("TTS synthesis with uploaded model failed")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    try:
+        audio_bytes = _transcode(result.audio_bytes, target_format)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    media_types = {
+        "wav": "audio/wav",
+        "mp3": "audio/mpeg",
+        "ogg": "audio/ogg",
+    }
+    m_type = media_types.get(target_format, "audio/wav")
+
     return Response(
-        content=result.audio_bytes,
-        media_type="audio/wav",
+        content=audio_bytes,
+        media_type=m_type,
         headers={
-            "Content-Disposition": "attachment; filename=voicio-output.wav",
+            "Content-Disposition": f"attachment; filename=voicio-output.{target_format}",
         },
     )
 
