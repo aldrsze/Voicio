@@ -37,6 +37,34 @@ export function Layout() {
     }
   };
 
+  const handleHeroClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (window.location.pathname === '/') {
+      const el = document.getElementById('hero');
+      if (el) {
+        e.preventDefault();
+        const startPosition = window.scrollY;
+        const targetPosition = 0;
+        const distance = targetPosition - startPosition;
+        const duration = 1000; // Duration 1s
+        let start: number | null = null;
+        
+        const animation = (currentTime: number) => {
+          if (start === null) start = currentTime;
+          const timeElapsed = currentTime - start;
+          let t = timeElapsed / (duration / 2);
+          let run = t < 1 
+            ? (distance / 2) * t * t + startPosition 
+            : (-distance / 2) * (--t * (t - 2) - 1) + startPosition;
+          
+          window.scrollTo(0, run);
+          if (timeElapsed < duration) requestAnimationFrame(animation);
+          else window.history.pushState(null, '', '/#hero');
+        };
+        requestAnimationFrame(animation);
+      }
+    }
+  };
+
   return (
     <div className="min-h-svh bg-white text-black dark:bg-black dark:text-white">
       <header
@@ -61,7 +89,13 @@ export function Layout() {
 
           <div className="flex items-center gap-6">
             <nav className="hidden sm:flex items-center gap-6 font-sans text-sm font-semibold text-black/60 dark:text-white/60">
-              <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
+              <a 
+                href="/#hero" 
+                onClick={handleHeroClick}
+                className="hover:text-black dark:hover:text-white transition-colors"
+              >
+                Home
+              </a>
               <a 
                 href="/#features" 
                 onClick={handleFeaturesClick}
@@ -69,6 +103,7 @@ export function Layout() {
               >
                 Features
               </a>
+              <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
               <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Github</a>
             </nav>
             
@@ -85,7 +120,13 @@ export function Layout() {
           
           {/* Mobile Nav */}
           <nav className="flex sm:hidden flex-row items-center justify-center gap-6 pt-3 pb-2 mt-2 border-t border-black/5 dark:border-white/5 font-sans text-xs font-semibold text-black/60 dark:text-white/60">
-            <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
+            <a 
+              href="/#hero" 
+              onClick={handleHeroClick}
+              className="hover:text-black dark:hover:text-white transition-colors"
+            >
+              Home
+            </a>
             <a 
               href="/#features" 
               onClick={handleFeaturesClick}
@@ -93,6 +134,7 @@ export function Layout() {
             >
               Features
             </a>
+            <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
             <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Github</a>
           </nav>
         </div>

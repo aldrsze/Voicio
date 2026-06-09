@@ -15,7 +15,7 @@ const langToCountry: Record<string, string> = {
   lt: 'LT', ca: 'ES', eu: 'ES', gl: 'ES', fil: 'PH', fa: 'IR', he: 'IL',
   ur: 'PK', bn: 'BD', sw: 'KE', ta: 'IN', te: 'IN', mr: 'IN', gu: 'IN',
   kn: 'IN', ml: 'IN', pa: 'IN', am: 'ET', is: 'IS', kk: 'KZ', mk: 'MK',
-  cy: 'GB', ga: 'IE', af: 'ZA', sq: 'AL', hy: 'AM', az: 'AZ', ka: 'GE'
+  cy: 'GB', ga: 'IE', af: 'ZA', sq: 'AL', hy: 'AM', az: 'AZ', ka: 'GE', tl: 'PH'
 };
 
 function getCountryCode(lang: string) {
@@ -351,17 +351,17 @@ export function VoiceSelector({
         </button>
 
         {isOpen && (
-          <div className="absolute z-50 mt-1 w-full max-h-88 flex flex-col bg-white dark:bg-bento-bg-dark border border-black/10 dark:border-white/10 shadow-xl py-1">
-            <div className="px-2 pb-2 pt-1 shrink-0 z-20 border-b border-black/5 dark:border-white/5">
+          <div className="fixed sm:absolute bottom-0 sm:bottom-auto left-0 sm:left-auto right-0 sm:right-auto sm:mt-1 sm:w-full z-50 flex flex-col bg-white dark:bg-bento-bg-dark border-t sm:border-t-0 sm:border border-black/10 dark:border-white/10 shadow-xl sm:shadow-xl sm:py-1 max-h-[80vh] sm:max-h-88 rounded-t-lg sm:rounded">
+            <div className="px-3 sm:px-2 pb-3 sm:pb-2 pt-3 sm:pt-1 shrink-0 z-20 border-b border-black/5 dark:border-white/5">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-black/40 dark:text-white/40" />
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 sm:w-3.5 h-4 sm:h-3.5 text-black/40 dark:text-white/40" />
                 <input
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search voices or languages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-xs font-sans bg-black/5 dark:bg-white/5 border border-transparent focus:border-black/20 dark:focus:border-white/20 focus:outline-none transition-colors dark:text-white"
+                  className="w-full pl-9 sm:pl-8 pr-3 py-2.5 sm:py-2 text-sm sm:text-xs font-sans bg-black/5 dark:bg-white/5 border border-transparent focus:border-black/20 dark:focus:border-white/20 focus:outline-none transition-colors dark:text-white rounded"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
                     // Keep open on space
@@ -373,7 +373,7 @@ export function VoiceSelector({
             
             <div className="overflow-y-auto custom-scrollbar flex-1 py-1">
               {filteredLanguagesWithSearch.langs.length === 0 ? (
-                <div className="px-4 py-4 text-xs text-black/50 dark:text-white/50 text-center font-sans">
+                <div className="px-4 py-6 sm:py-4 text-sm sm:text-xs text-black/50 dark:text-white/50 text-center font-sans">
                   No voices match "{searchQuery}"
                 </div>
               ) : (
@@ -383,7 +383,7 @@ export function VoiceSelector({
 
                   return (
                     <div key={lang} className="mb-1">
-                      <div className="px-3 py-1.5 bg-black/5 dark:bg-white/5 sticky top-0 z-10 backdrop-blur-sm flex items-center gap-2 border-y border-black/5 dark:border-white/5 font-sans text-xs font-bold text-black/70 dark:text-white/70 uppercase tracking-wider">
+                      <div className="px-4 sm:px-3 py-2.5 sm:py-1.5 bg-black/5 dark:bg-white/5 sticky top-0 z-10 backdrop-blur-sm flex items-center gap-2 border-y border-black/5 dark:border-white/5 font-sans text-sm sm:text-xs font-bold text-black/70 dark:text-white/70 uppercase tracking-wider">
                         <FlagIcon lang={lang} />
                         {label}
                       </div>
@@ -397,7 +397,7 @@ export function VoiceSelector({
                               setIsOpen(false);
                               setSearchQuery("");
                             }}
-                            className={`w-full text-left px-4 py-2 font-sans text-sm transition-colors flex items-center justify-between ${
+                            className={`w-full text-left px-4 sm:px-4 py-3 sm:py-2 font-sans text-base sm:text-sm transition-colors flex items-center justify-between active:bg-black/5 sm:active:bg-transparent ${
                               selectedVoice === v.id
                                 ? "bg-black/5 text-black dark:bg-white/10 dark:text-white font-medium"
                                 : "text-black/80 hover:bg-black/5 hover:text-black dark:text-white/80 dark:hover:bg-white/10 dark:hover:text-white"

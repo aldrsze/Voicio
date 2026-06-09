@@ -18,7 +18,7 @@ const langToCountry: Record<string, string> = {
   lt: 'LT', ca: 'ES', eu: 'ES', gl: 'ES', fil: 'PH', fa: 'IR', he: 'IL',
   ur: 'PK', bn: 'BD', sw: 'KE', ta: 'IN', te: 'IN', mr: 'IN', gu: 'IN',
   kn: 'IN', ml: 'IN', pa: 'IN', am: 'ET', is: 'IS', kk: 'KZ', mk: 'MK',
-  cy: 'GB', ga: 'IE', af: 'ZA', sq: 'AL', hy: 'AM', az: 'AZ', ka: 'GE'
+  cy: 'GB', ga: 'IE', af: 'ZA', sq: 'AL', hy: 'AM', az: 'AZ', ka: 'GE', tl: 'PH'
 };
 
 function getCountryCode(lang: string) {
@@ -55,6 +55,7 @@ export function HomePage() {
     <main className="mx-auto mt-0 md:mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8 overflow-hidden">
       {/* Hero */}
       <section 
+        id="hero"
         className="animate-in mb-8 md:mb-24 pb-24 md:pb-0 flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-8 md:gap-12 min-h-[calc(100svh-8rem)]"
         style={{ "--delay": "50ms" } as React.CSSProperties}
       >
@@ -160,46 +161,46 @@ export function HomePage() {
       {/* Languages Modal */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/80 dark:bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/80 dark:bg-black/80 backdrop-blur-sm overflow-hidden"
           onClick={() => setIsModalOpen(false)}
         >
           <div 
-            className="w-full max-w-7xl bg-white dark:bg-bento-bg-dark border border-black/10 dark:border-white/10 shadow-2xl flex flex-col animate-in" 
+            className="w-full max-w-7xl h-full max-h-[calc(100svh-2rem)] sm:max-h-[calc(100svh-6rem)] bg-white dark:bg-bento-bg-dark border border-black/10 dark:border-white/10 shadow-2xl flex flex-col animate-in" 
             style={{ "--delay": "0ms" } as React.CSSProperties}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 sm:p-5 border-b border-black/10 dark:border-white/10 flex justify-between items-center">
-              <h2 className="font-sans text-xl sm:text-2xl font-bold tracking-tight">Available Languages</h2>
+            <div className="p-4 sm:p-5 border-b border-black/10 dark:border-white/10 flex justify-between items-center shrink-0">
+              <h2 className="font-sans text-lg sm:text-2xl font-bold tracking-tight truncate pr-4">Available Languages</h2>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white text-2xl leading-none cursor-pointer"
+                className="text-black/50 hover:text-black dark:text-white/50 dark:hover:text-white text-2xl leading-none cursor-pointer shrink-0 ml-2"
               >
                 &times;
               </button>
             </div>
-            <div className="p-4 sm:p-5 overflow-hidden">
+            <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
               {loading ? (
                 <p className="font-sans text-black/60 dark:text-white/60">Fetching language database...</p>
               ) : languages.length === 0 ? (
                 <p className="font-sans text-black/60 dark:text-white/60">No languages currently loaded or backend offline.</p>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                   {languages.map((lang) => {
                     const countryCode = getCountryCode(lang);
                     const Flag = countryCode ? ((Flags as any)[countryCode] || (Flags as any).default?.[countryCode]) : null;
                     const name = getCountryName(lang);
                     return (
-                      <div key={lang} className="flex items-center gap-2 px-2 py-1.5 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded-none hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
+                      <div key={lang} className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
                         {Flag ? (
                           <div className="shrink-0 shadow-sm border border-black/10 dark:border-white/10 overflow-hidden rounded-sm flex items-center justify-center">
-                            <Flag title={name} style={{ width: '24px', height: '16px', display: 'block' }} />
+                            <Flag title={name} style={{ width: '32px', height: '22px', display: 'block' }} />
                           </div>
                         ) : (
-                          <Globe className="shrink-0 w-4 h-4 text-black/40 dark:text-white/40 stroke-[2.5] mx-1" />
+                          <Globe className="shrink-0 w-5 h-5 text-black/40 dark:text-white/40 stroke-[2.5]" />
                         )}
-                        <div className="flex flex-col min-w-0 justify-center">
-                          <span className="font-sans text-[11px] font-semibold truncate leading-tight">{name}</span>
-                          <span className="font-sans text-[9px] text-black/40 dark:text-white/40 truncate leading-tight">{byLanguage[lang].length} voices</span>
+                        <div className="flex flex-col items-center justify-center min-w-0 text-center">
+                          <span className="font-sans text-[10px] sm:text-xs font-semibold truncate leading-tight">{name}</span>
+                          <span className="font-sans text-[8px] sm:text-[9px] text-black/40 dark:text-white/40 truncate leading-tight">{byLanguage[lang].length} voice{byLanguage[lang].length !== 1 ? 's' : ''}</span>
                         </div>
                       </div>
                     );
