@@ -4,11 +4,12 @@ import { TextInput } from "./components/TextInput";
 import { Toggle } from "./components/Toggle";
 import { VoiceSelector } from "./components/VoiceSelectors";
 import { SpeedSlider } from "./components/SpeedSlider";
-import { PlayButton } from "./components/PlayButton";
 import { StatusBar } from "./components/StatusBar";
+import { HistoryPanel, type HistoryEntry } from "./components/HistoryPanel";
 import { useTTS } from "./hooks/useTTS";
-import { useVoices } from "./hooks/useVoices";
+import { useVoices, voiceDisplayName } from "./hooks/useVoices";
 import { useTheme } from "./contexts/ThemeContext";
+import type { AppStatus } from "./types";
 
 /** Determine the voice ID for a language's first available voice */
 function defaultVoiceForLang(
@@ -18,17 +19,79 @@ function defaultVoiceForLang(
   return byLanguage[lang]?.[0]?.id ?? null;
 }
 
+/** Max history entries before the oldest are evicted */
+const MAX_HISTORY = 20;
+
 export default function App() {
   const [text, setText] = useState("");
   const [speed, setSpeed] = useState(0.85);
   const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [autoGenerate, setAutoGenerate] = useState(false);
 
+  // ── History state ──
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [historyPlayingId, setHistoryPlayingId] = useState<number | null>(null);
+  const historyIdRef = useRef(0);
+  /** Tracks blob URLs created for history so we can revoke them on eviction */
+  const historyUrlsRef = useRef<Set<string>>(new Set());
+
   const speedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { all, byLanguage, loading } = useVoices();
   const { status, error, audioUrl, generate, play, stop } = useTTS();
   const { theme, toggleTheme } = useTheme();
+
+  // Detect status transitions to "ready" to capture history entries
+  const prevStatusRef = useRef<AppStatus>(status);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = status;
+
+    if (status === "ready" && audioUrl && prev === "generating") {
+      // Clone the blob so this URL survives the next cleanup in useTTS
+      fetch(audioUrl)
+        .then((r) => r.blob())
+        .then((blob) => {
+          const historyUrl = URL.createObjectURL(blob);
+          historyUrlsRef.current.add(historyUrl);
+
+          // Resolve voice name
+          let voiceName = voiceDisplayName(selectedVoice);
+          for (const voices of Object.values(byLanguage)) {
+            const found = voices.find((v) => v.id === selectedVoice);
+            if (found?.name) {
+              voiceName = found.name;
+              break;
+            }
+          }
+
+          const id = ++historyIdRef.current;
+          const entry: HistoryEntry = {
+            id,
+            text,
+            voiceName,
+            voiceId: selectedVoice,
+            speed,
+            timestamp: new Date(),
+            audioUrl: historyUrl,
+          };
+
+          setHistory((prev) => {
+            const next = [entry, ...prev];
+            // Evict oldest entries beyond MAX_HISTORY
+            if (next.length > MAX_HISTORY) {
+              const evicted = next.slice(MAX_HISTORY);
+              for (const e of evicted) {
+                historyUrlsRef.current.delete(e.audioUrl);
+                URL.revokeObjectURL(e.audioUrl);
+              }
+              return next.slice(0, MAX_HISTORY);
+            }
+            return next;
+          });
+        });
+    }
+  }, [status, audioUrl, text, selectedVoice, speed, byLanguage]);
 
   // ── Set default voice when voices load ──
   const [initialized, setInitialized] = useState(false);
@@ -44,6 +107,16 @@ export default function App() {
   useEffect(() => {
     return () => {
       if (speedDebounceRef.current) clearTimeout(speedDebounceRef.current);
+    };
+  }, []);
+
+  // Clean up all history blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      for (const url of historyUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+      historyUrlsRef.current.clear();
     };
   }, []);
 
@@ -131,11 +204,36 @@ export default function App() {
     document.body.removeChild(a);
   }, [audioUrl]);
 
+  // ── History playback (no-op if already playing) ──
+  const handleHistoryPlay = useCallback(
+    (entry: HistoryEntry) => {
+      if (historyPlayingId === entry.id) return; // already playing
+
+      setHistoryPlayingId(entry.id);
+
+      const audio = new Audio(entry.audioUrl);
+      audio.onended = () => setHistoryPlayingId(null);
+      audio.onerror = () => setHistoryPlayingId(null);
+      audio.play().catch(() => setHistoryPlayingId(null));
+    },
+    [historyPlayingId],
+  );
+
+  // ── History download ──
+  const handleHistoryDownload = useCallback((entry: HistoryEntry) => {
+    const a = document.createElement("a");
+    a.href = entry.audioUrl;
+    a.download = "voicio-output.wav";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, []);
+
   return (
     <div className="min-h-svh bg-white text-black transition-colors dark:bg-black dark:text-white">
       {/* ── Header ─────────────────────────────────────────── */}
       <header
-        className="mx-auto max-w-2xl px-4 pt-8 sm:px-6 lg:px-8"
+        className="mx-auto max-w-5xl px-4 pt-8 sm:px-6 lg:px-8"
         style={{ "--delay": "0ms" } as React.CSSProperties}
       >
         <div className="animate-in flex items-center justify-between">
@@ -164,63 +262,74 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── Main card ──────────────────────────────────────── */}
-      <main className="mx-auto mt-6 max-w-2xl px-4 pb-16 sm:px-6 lg:px-8">
-        <div
-          className="animate-in border border-black/10 bg-white p-5 sm:p-7 dark:border-white/10 dark:bg-bento-bg-dark"
-          style={{ "--delay": "100ms" } as React.CSSProperties}
-        >
-          <div className="flex flex-col gap-5">
-            {/* Text input */}
-            <TextInput
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              disabled={status === "generating"}
-            />
-
-            {/* Voice selector with engine filter tabs */}
-            <VoiceSelector
-              voicesByLanguage={byLanguage}
-              selectedVoice={selectedVoice}
-              onChange={handleVoiceChange}
-              disabled={status === "generating" || loading}
-            />
-
-            {/* Speed slider */}
-            <SpeedSlider
-              value={speed}
-              onChange={handleSpeedChange}
-              disabled={status === "generating"}
-            />
-
-            {/* Auto-generate toggle */}
-            <Toggle
-              label="Auto-generate"
-              enabled={autoGenerate}
-              onChange={setAutoGenerate}
-              disabled={status === "generating"}
-            />
-          </div>
-
-          {/* ── Action row ──────────────────────────────────── */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <PlayButton
-              status={status}
-              hasText={hasText}
-              onGenerate={handleGenerate}
-              onPlay={play}
-              onStop={stop}
-              onDownload={handleDownload}
-            />
-
-          </div>
-
-          {/* ── Status ──────────────────────────────────────── */}
+      {/* ── Generator + History side by side ──────────────── */}
+      <main className="mx-auto mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
+          {/* ── Generator card ────────────────────────────── */}
           <div
-            className="mt-4"
-            style={{ "--delay": "200ms" } as React.CSSProperties}
+            className="animate-in flex flex-1 flex-col border border-black/10 bg-white p-5 sm:p-7 dark:border-white/10 dark:bg-bento-bg-dark"
+            style={{ "--delay": "100ms" } as React.CSSProperties}
           >
-            <StatusBar status={status} error={error} />
+            <div className="flex flex-col gap-5">
+              {/* Text input */}
+              <TextInput
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                disabled={status === "generating"}
+              />
+
+              {/* Voice selector with engine filter tabs */}
+              <VoiceSelector
+                voicesByLanguage={byLanguage}
+                selectedVoice={selectedVoice}
+                onChange={handleVoiceChange}
+                disabled={status === "generating" || loading}
+              />
+
+              {/* Speed slider */}
+              <SpeedSlider
+                value={speed}
+                onChange={handleSpeedChange}
+                disabled={status === "generating"}
+              />
+
+              {/* Auto-generate toggle */}
+              <Toggle
+                label="Auto-generate"
+                enabled={autoGenerate}
+                onChange={setAutoGenerate}
+                disabled={status === "generating"}
+              />
+            </div>
+
+            {/* ── Status bar with integrated controls ── */}
+            <div
+              className="mt-6"
+              style={{ "--delay": "200ms" } as React.CSSProperties}
+            >
+              <StatusBar
+                status={status}
+                error={error}
+                hasText={hasText}
+                onGenerate={handleGenerate}
+                onPlay={play}
+                onStop={stop}
+                onDownload={handleDownload}
+              />
+            </div>
+          </div>
+
+          {/* ── History panel ─────────────────────────────── */}
+          <div
+            className="animate-in flex flex-col lg:w-80 lg:min-w-80"
+            style={{ "--delay": "150ms" } as React.CSSProperties}
+          >
+            <HistoryPanel
+              entries={history}
+              onPlay={handleHistoryPlay}
+              onDownload={handleHistoryDownload}
+              playingId={historyPlayingId}
+            />
           </div>
         </div>
 
@@ -231,7 +340,7 @@ export default function App() {
         >
           {hasText && selectedVoice
             ? autoGenerate
-              ? "⚡ Auto-generate is on — speed and voice changes regenerate automatically."
+              ? "Auto-generate is on — speed and voice changes regenerate automatically."
               : "Auto-generate is off — toggle it on to regenerate on speed/voice changes."
             : "Select a voice and type text to generate speech."}
         </p>
