@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import type { AppStatus } from "../types";
 
 const API_BASE = "/api";
@@ -17,18 +17,31 @@ export function useTTS() {
   });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const cleanup = useCallback(() => {
+    // Cancel any in-flight request
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+
+    // Revoke the old blob URL
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
+
+    // Destroy any existing audio element
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
       audioRef.current = null;
     }
   }, []);
+
+  // Clean up on unmount
+  useEffect(() => cleanup, [cleanup]);
 
   const generate = useCallback(
     async (
@@ -40,6 +53,9 @@ export function useTTS() {
       cleanup();
       setState({ status: "generating", error: null, audioUrl: null });
 
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       try {
         const body: Record<string, unknown> = {
           text,
@@ -47,7 +63,6 @@ export function useTTS() {
           speed: speed ?? 0.85,
         };
 
-        // If a specific voice is chosen, send it
         if (voice) {
           body.voice = voice;
         }
@@ -56,6 +71,7 @@ export function useTTS() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
+          signal: controller.signal,
         });
 
         if (!res.ok) {
@@ -69,8 +85,13 @@ export function useTTS() {
 
         setState({ status: "ready", error: null, audioUrl: url });
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return; // Silently ignore aborted requests
+        }
         const message = err instanceof Error ? err.message : "Something went wrong";
         setState({ status: "error", error: message, audioUrl: null });
+      } finally {
+        abortRef.current = null;
       }
     },
     [cleanup],

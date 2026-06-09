@@ -1,3 +1,4 @@
+import { Download, LoaderCircle, Play, Square } from "lucide-react";
 import type { AppStatus } from "../types";
 
 interface Props {
@@ -18,96 +19,76 @@ export function PlayButton({
   onDownload,
 }: Props) {
   const isBusy = status === "generating";
-
-  if (status === "playing") {
-    return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onStop}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-teal px-5 py-2.5 font-body text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-dark active:scale-[0.97]"
-        >
-          {/* Stop icon */}
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="3" y="3" width="10" height="10" rx="1.5" />
-          </svg>
-          Stop
-        </button>
-        <button
-          onClick={onDownload}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border-2 border-sand bg-white px-4 py-2.5 font-body text-sm font-medium text-cocoa transition-all hover:border-mocha/30 active:scale-[0.97]"
-        >
-          {/* Download icon */}
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 1v9M4 6l4 4 4-4" />
-            <path d="M1 12v2a1 1 0 001 1h12a1 1 0 001-1v-2" />
-          </svg>
-          Download
-        </button>
-      </div>
-    );
-  }
-
-  if (status === "ready") {
-    return (
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onPlay}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-teal px-5 py-2.5 font-body text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-dark active:scale-[0.97]"
-        >
-          {/* Play icon */}
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M4 2.5v11l9-5.5z" />
-          </svg>
-          Play
-        </button>
-        <button
-          onClick={onDownload}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border-2 border-sand bg-white px-4 py-2.5 font-body text-sm font-medium text-cocoa transition-all hover:border-mocha/30 active:scale-[0.97]"
-        >
-          <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 1v9M4 6l4 4 4-4" />
-            <path d="M1 12v2a1 1 0 001 1h12a1 1 0 001-1v-2" />
-          </svg>
-          Download
-        </button>
-      </div>
-    );
-  }
+  const hasAudio = status === "ready" || status === "playing";
+  const isPlaying = status === "playing";
 
   return (
-    <button
-      onClick={onGenerate}
-      disabled={!hasText || isBusy}
-      className={`
-        relative inline-flex cursor-pointer items-center gap-2.5
-        rounded-full px-7 py-3
-        font-body text-sm font-semibold
-        shadow-sm transition-all
-        active:scale-[0.97]
-        disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100
-        ${
-          isBusy
-            ? "bg-mocha/20 text-mocha"
-            : "bg-terracotta text-white hover:bg-terracotta-light"
-        }
-      `}
-    >
-      {/* Animated ring when generating */}
-      {isBusy && (
-        <span className="pointer-events-none absolute inset-0 rounded-full border-2 border-terracotta/30 animate-pulse-ring" />
+    <div className="flex flex-wrap items-center gap-2">
+      {/* ── Primary: Generate / Generate Again ── */}
+      <button
+        onClick={onGenerate}
+        disabled={!hasText || isBusy}
+        className={`
+          relative inline-flex cursor-pointer items-center gap-2.5
+          px-6 py-2.5
+          font-sans text-sm font-semibold
+          transition-all
+          active:scale-[0.97]
+          disabled:cursor-not-allowed disabled:opacity-30 disabled:active:scale-100
+          ${
+            isBusy
+              ? "bg-black/10 text-black/50 dark:bg-white/10 dark:text-white/50"
+              : hasAudio
+                ? "bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+                : "bg-black text-white hover:bg-black/80 dark:bg-white dark:text-black dark:hover:bg-white/80"
+          }
+        `}
+      >
+        {isBusy && (
+          <span className="pointer-events-none absolute inset-0 border border-black/20 dark:border-white/20 animate-pulse-ring" />
+        )}
+
+        {isBusy ? (
+          <LoaderCircle className="h-4 w-4 animate-spin" />
+        ) : (
+          <Play className="h-4 w-4" fill="currentColor" />
+        )}
+
+        {isBusy ? "Generating…" : hasAudio ? "Generate Again" : "Generate & Play"}
+      </button>
+
+      {/* ── Play (when audio exists and not playing) ── */}
+      {hasAudio && !isPlaying && (
+        <button
+          onClick={onPlay}
+          className="inline-flex cursor-pointer items-center gap-2 border border-black/20 bg-white px-5 py-2.5 font-sans text-sm font-semibold text-black transition-all hover:bg-black/5 active:scale-[0.97] dark:border-white/20 dark:bg-transparent dark:text-white dark:hover:bg-white/10"
+        >
+          <Play className="h-4 w-4" fill="currentColor" />
+          Play
+        </button>
       )}
-      {/* Icon */}
-      {isBusy ? (
-        <svg className="h-4 w-4 animate-spin" viewBox="0 0 16 16" fill="none">
-          <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3" />
-          <path d="M8 2a6 6 0 016 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      ) : (
-        <svg className="h-4 w-4" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M4 2.5v11l9-5.5z" />
-        </svg>
+
+      {/* ── Stop (when playing) ── */}
+      {isPlaying && (
+        <button
+          onClick={onStop}
+          className="inline-flex cursor-pointer items-center gap-2 border border-red-400 bg-white px-5 py-2.5 font-sans text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-[0.97] dark:border-red-800 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-950"
+        >
+          <Square className="h-4 w-4" fill="currentColor" />
+          Stop
+        </button>
       )}
-      {isBusy ? "Generating…" : "Generate & Play"}
-    </button>
+
+      {/* ── Download (when audio exists) ── */}
+      {hasAudio && (
+        <button
+          onClick={onDownload}
+          className="inline-flex cursor-pointer items-center gap-1.5 border border-black/10 bg-white px-4 py-2.5 font-sans text-sm font-medium text-black/60 transition-all hover:bg-black/5 active:scale-[0.97] dark:border-white/10 dark:bg-transparent dark:text-white/60 dark:hover:bg-white/10"
+        >
+          <Download className="h-4 w-4" />
+          Download
+        </button>
+      )}
+    </div>
   );
 }

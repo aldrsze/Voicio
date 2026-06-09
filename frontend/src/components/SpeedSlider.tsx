@@ -15,7 +15,7 @@ export function SpeedSlider({ value, onChange, disabled }: Props) {
     <div className="flex flex-col gap-1.5">
       <label
         htmlFor={id}
-        className="font-display text-sm font-semibold tracking-wide text-cocoa"
+        className="font-sans text-sm font-semibold tracking-wide text-black dark:text-white"
       >
         Speed
       </label>
@@ -31,7 +31,7 @@ export function SpeedSlider({ value, onChange, disabled }: Props) {
           disabled={disabled}
           className="flex-1 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
         />
-        <span className="min-w-[3ch] text-right font-body text-sm tabular-nums text-cocoa">
+        <span className="min-w-[3ch] text-right font-sans text-sm tabular-nums text-black dark:text-white">
           {value.toFixed(2)}×
         </span>
       </div>
@@ -43,11 +43,11 @@ export function SpeedSlider({ value, onChange, disabled }: Props) {
             onClick={() => onChange(m)}
             disabled={disabled}
             className={`
-              text-[11px] font-medium tracking-wide uppercase transition-colors
+              font-sans text-[11px] font-medium uppercase tracking-wide transition-colors
               disabled:cursor-not-allowed
               ${Math.abs(value - m) < 0.04
-                ? "text-terracotta font-semibold"
-                : "text-mocha/50 hover:text-mocha"
+                ? "text-black font-bold dark:text-white"
+                : "text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
               }
             `}
           >

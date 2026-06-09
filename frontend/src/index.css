@@ -1,43 +1,64 @@
 @import "tailwindcss";
 
-/* ── Custom theme ─────────────────────────────────────────────────── */
-@theme {
-  --color-cream: #f8f4ef;
-  --color-espresso: #2c1810;
-  --color-cocoa: #5c3a2a;
-  --color-mocha: #8b6b4e;
-  --color-terracotta: #c8684a;
-  --color-terracotta-light: #e08b6e;
-  --color-teal-dark: #1a5e5a;
-  --color-teal: #2b7a75;
-  --color-mango: #e8a840;
-  --color-mango-light: #f0c060;
-  --color-sand: #e8ddd0;
-  --color-linen: #f0e8dc;
+/* ══════════════════════════════════════════════════════════════════════
+   Design System — Monochrome Brutalism
+   Based on DESIGN.md: black/white opacity-tier palette, sharp corners,
+   no decorative flourishes, functional animations only.
+   ══════════════════════════════════════════════════════════════════════ */
 
-  --font-display: "Fraunces", Georgia, serif;
-  --font-body: "DM Sans", system-ui, sans-serif;
+/* ── Custom theme tokens ──────────────────────────────────────────── */
+@theme {
+  --font-sans: "Poppins", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --color-bento-border: #e5e7eb;
+  --color-bento-border-dark: #2a2a2a;
+  --color-bento-bg: #ffffff;
+  --color-bento-bg-dark: #111111;
+  --color-surface: #f9fafb;
+  --color-surface-dark: #0a0a0a;
 }
+
+/* ── Dark mode variant ────────────────────────────────────────────── */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* ── Base ──────────────────────────────────────────────────────────── */
 body {
   margin: 0;
-  font-family: var(--font-body);
-  background-color: var(--color-cream);
-  color: var(--color-espresso);
+  font-family: var(--font-sans);
+  background-color: #ffffff;
+  color: #000000;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Gradient mesh ──────────────────────────────────────────────── */
-.bg-mesh {
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--color-mango) 12%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 60% at 80% 90%, color-mix(in srgb, var(--color-terracotta) 8%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 50% at 10% 80%, color-mix(in srgb, var(--color-teal) 6%, transparent) 0%, transparent 60%);
+.dark body,
+body.dark {
+  background-color: #000000;
+  color: #ffffff;
 }
 
-/* ── Pulse ring for play button ─────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════
+   Animation System (Section 8 of DESIGN.md)
+   ══════════════════════════════════════════════════════════════════════ */
+
+@keyframes fadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  opacity: 0;
+  animation: fadeSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* ── Pulse ring for generating state ─────────────────────────────── */
 @keyframes pulse-ring {
   0%   { transform: scale(1); opacity: 0.5; }
   50%  { transform: scale(1.15); opacity: 0.1; }
@@ -47,7 +68,7 @@ body {
   animation: pulse-ring 2.4s ease-in-out infinite;
 }
 
-/* ── Waveform animation ─────────────────────────────────────────── */
+/* ── Waveform bars ────────────────────────────────────────────────── */
 @keyframes wave {
   0%, 100% { transform: scaleY(0.25); }
   50%      { transform: scaleY(1); }
@@ -63,28 +84,29 @@ body {
 .animate-wave:nth-child(7) { animation-delay: 0.20s; }
 .animate-wave:nth-child(8) { animation-delay: 0.28s; }
 
-/* ── Fade-up entrance ───────────────────────────────────────────── */
-@keyframes fade-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
+/* ── Spinner (for generating state) ───────────────────────────────── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
-.animate-fade-up {
-  animation: fade-up 0.55s ease-out both;
+.animate-spin {
+  animation: spin 1s linear infinite;
 }
-.delay-1 { animation-delay: 0.05s; }
-.delay-2 { animation-delay: 0.10s; }
-.delay-3 { animation-delay: 0.15s; }
-.delay-4 { animation-delay: 0.20s; }
-.delay-5 { animation-delay: 0.25s; }
 
-/* ── Custom range slider ─────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════
+   Custom Controls
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Range slider ─────────────────────────────────────────────────── */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   height: 5px;
   border-radius: 3px;
-  background: var(--color-sand);
+  background: rgba(0, 0, 0, 0.15);
   outline: none;
+}
+.dark input[type="range"] {
+  background: rgba(255, 255, 255, 0.2);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -92,11 +114,16 @@ input[type="range"]::-webkit-slider-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--color-terracotta);
+  background: #000000;
   cursor: pointer;
   border: 3px solid white;
-  box-shadow: 0 1px 4px rgba(44,24,16,0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
   transition: transform 0.15s;
+}
+.dark input[type="range"]::-webkit-slider-thumb {
+  background: #ffffff;
+  border: 3px solid #111;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.18);
@@ -105,13 +132,17 @@ input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--color-terracotta);
+  background: #000000;
   cursor: pointer;
   border: 3px solid white;
-  box-shadow: 0 1px 4px rgba(44,24,16,0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.dark input[type="range"]::-moz-range-thumb {
+  background: #ffffff;
+  border: 3px solid #111;
 }
 
-/* ── Textarea custom scrollbar ──────────────────────────────────── */
+/* ── Textarea custom scrollbar ────────────────────────────────────── */
 textarea::-webkit-scrollbar {
   width: 6px;
 }
@@ -119,6 +150,9 @@ textarea::-webkit-scrollbar-track {
   background: transparent;
 }
 textarea::-webkit-scrollbar-thumb {
-  background: var(--color-mocha);
+  background: rgba(0, 0, 0, 0.25);
   border-radius: 3px;
+}
+.dark textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
 }
