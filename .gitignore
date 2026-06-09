@@ -8,6 +8,13 @@ backend/models/*.onnx.json
 backend/models/**/*.onnx
 backend/models/**/*.onnx.json
 
+# Model metadata (MODEL_CARD, sample MP3s, ALIASES — kept on disk, not in repo)
+backend/models/en/
+backend/models/es/
+backend/models/hi/
+backend/models/pt/
+backend/models/zh/
+
 # Python cache
 __pycache__/
 *.pyc
