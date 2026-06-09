@@ -14,9 +14,12 @@ langdetect>=1.0.9
 # ── Tagalog TTS (MMS) — needs transformers + torch ───────────────────────
 # Uncomment for Tagalog speech synthesis via facebook/mms-tts-tgl.
 # These are large downloads (~2 GB total for torch):
-transformers>=4.45.0
-torch>=2.3.0
+# transformers>=4.45.0
+# torch>=2.3.0
 # accelerate>=0.30.0   # optional: speeds up MMS inference
+
+# ── Piper TTS ─────────────────────────────────────────────────────────────
+piper-tts>=1.2.0
 
 # ── Audio processing (stdlib wave module used by default) ────────────────
 # pydub>=0.25.1   (disabled on Python 3.14+ — use ffmpeg via subprocess instead)
@@ -27,3 +30,4 @@ edge-tts>=6.1.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────
 python-multipart>=0.0.9
+

@@ -24,12 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy pre-built wheels
 COPY --from=builder /wheels /wheels
-RUN pip install --no-cache-dir --no-index --find-links /wheels -r requirements.txt \
+RUN pip install --no-cache-dir --no-index --find-links /wheels /wheels/*.whl \
     && rm -rf /wheels
 
 # Copy application code
 COPY ./app /app/app
-COPY ./models /app/models
+RUN mkdir -p /app/models
 
 EXPOSE 8000
 
