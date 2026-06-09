@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Globe } from "lucide-react";
 import { useVoices } from "../hooks/useVoices";
-import * as Flags from 'country-flag-icons/react/3x2';
+import * as Flags from 'country-flag-icons/string/3x2';
 
 import { hasFlag } from 'country-flag-icons';
 
@@ -153,7 +153,7 @@ export function HomePage() {
           © {new Date().getFullYear()} Built by Aldrsze. Free for everyone.
         </p>
         <div className="flex gap-6 font-sans text-[11px] text-black/60 dark:text-white/60">
-          <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
+          <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
           <a href="https://aldrsze.is-pinoy.dev/" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Dev Website</a>
           <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
         </div>
@@ -161,7 +161,7 @@ export function HomePage() {
       {/* Languages Modal */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/80 dark:bg-black/80 backdrop-blur-sm overflow-hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/95 dark:bg-black/95 sm:bg-white/80 sm:dark:bg-black/80 sm:backdrop-blur-sm overflow-hidden"
           onClick={() => setIsModalOpen(false)}
         >
           <div 
@@ -187,13 +187,14 @@ export function HomePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                   {languages.map((lang) => {
                     const countryCode = getCountryCode(lang);
-                    const Flag = countryCode ? ((Flags as any)[countryCode] || (Flags as any).default?.[countryCode]) : null;
+                    const flagSvgString = countryCode ? ((Flags as any)[countryCode] || (Flags as any).default?.[countryCode]) : null;
+                    const encodedSvg = flagSvgString ? `data:image/svg+xml;utf8,${encodeURIComponent(flagSvgString)}` : null;
                     const name = getCountryName(lang);
                     return (
                       <div key={lang} className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                        {Flag ? (
+                        {encodedSvg ? (
                           <div className="shrink-0 shadow-sm border border-black/10 dark:border-white/10 overflow-hidden rounded-sm flex items-center justify-center">
-                            <Flag title={name} style={{ width: '32px', height: '22px', display: 'block' }} />
+                            <img src={encodedSvg} alt={name} title={name} className="block object-cover" style={{ width: '32px', height: '22px' }} loading="lazy" />
                           </div>
                         ) : (
                           <Globe className="shrink-0 w-5 h-5 text-black/40 dark:text-white/40 stroke-[2.5]" />
@@ -214,3 +215,4 @@ export function HomePage() {
     </main>
   );
 }
+
