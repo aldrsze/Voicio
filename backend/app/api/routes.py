@@ -1,23 +1,26 @@
-"""API route handlers for the TTS service.
+"""API route handlers for the multi-language TTS service.
 
-English speech → Piper TTS (with high-quality .onnx voice models)
-Tagalog speech → MMS-TTS (facebook/mms-tts-tgl via Hugging Face)
-
-The API contract exposes both languages natively — no more Spanish model hack.
+Each request targets a single language — the user selects which language
+to speak, and the backend routes to the correct TTS engine (Piper or MMS).
+Specific voice models can be selected by ID for finer control.
 """
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
-from app.api.schemas import HealthResponse, TTSRequest, VoiceInfo, VoicesResponse
+from app.api.schemas import GroupedVoicesResponse, HealthResponse, TTSRequest, VoiceInfo
 from app.config import settings
 from app.core.audio import synthesise_text
-from app.core.tts import get_piper, get_mms
+from app.core.tts import (
+    check_mms_deps,
+    check_piper_binary,
+    get_engine,
+)
+from app.core.voice_profiles import get_voices_by_language
 
 logger = logging.getLogger(__name__)
 
@@ -35,28 +38,66 @@ router = APIRouter()
             "content": {"audio/wav": {}},
             "description": "WAV audio bytes",
         },
-        400: {"description": "Invalid input (empty text, text too long, etc.)"},
+        400: {"description": "Invalid input (empty text, text too long, unsupported language, etc.)"},
         500: {"description": "TTS generation failure"},
     },
 )
 async def tts(request: TTSRequest) -> Response:
-    """Generate speech from mixed English/Tagalog text.
+    """Generate speech from text in the requested language or voice.
 
-    Returns a WAV file with ``Content-Type: audio/wav``. The backend
-    automatically detects which sentences are English vs Tagalog and
-    routes each segment to the correct TTS engine:
+    Returns a WAV file with ``Content-Type: audio/wav``. The language field
+    determines which TTS engine is used:
 
-    - **English** → Piper TTS (local .onnx voice models)
-    - **Tagalog** → MMS-TTS (facebook/mms-tts-tgl via Hugging Face)
+    - **Piper** languages (en, es, fr, de, it, pt, nl, pl, ru) → local .onnx models
+    - **MMS** languages (tl) → Hugging Face ``facebook/mms-tts-tgl``
+
+    If a ``voice`` ID is provided (e.g. ``en_US-amy-medium``), it selects a
+    specific Piper model and the language is inferred automatically.
     """
     text = request.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text must not be empty.")
 
+    # Determine the effective language and voice
+    language = request.language
+    voice = request.voice
+
+    # If a specific voice is given, check it exists and infer language
+    if voice:
+        # Look up the voice to validate
+        voices_by_lang = get_voices_by_language()
+        found = False
+        for lang, voice_list in voices_by_lang.items():
+            for v in voice_list:
+                if v["id"] == voice and v["available"]:
+                    language = lang
+                    found = True
+                    break
+            if found:
+                break
+
+        if not found:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Voice {voice!r} is not available or not found. "
+                f"Check GET /api/voices for available voices.",
+            )
+
+    # Validate language is configured
+    if language not in settings.supported_languages:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unsupported language: {language!r}. "
+                f"Supported: {', '.join(settings.supported_languages)}"
+            ),
+        )
+
     try:
         wav_bytes = await synthesise_text(
             text,
-            voice_en=request.voice_eng,
+            language=language,
+            voice=voice,
             speed=request.speed,
         )
     except ValueError as exc:
@@ -79,43 +120,40 @@ async def tts(request: TTSRequest) -> Response:
 # ── GET /api/voices ───────────────────────────────────────────────────────
 
 
-@router.get("/voices", response_model=VoicesResponse)
-async def list_voices() -> VoicesResponse:
-    """Return all available Piper voice models + MMS-TTS Tagalog model."""
-    voices: list[VoiceInfo] = []
-    model_dir = settings.models_dir
+@router.get("/voices", response_model=GroupedVoicesResponse)
+async def list_voices() -> GroupedVoicesResponse:
+    """Return all available voices grouped by language, with categories."""
+    voices_by_lang = get_voices_by_language()
 
-    # 1. Scan local Piper .onnx models (English)
-    if model_dir.is_dir():
-        for onnx_file in sorted(model_dir.glob("*.onnx")):
-            voice_id = onnx_file.stem
-            # Only show English models via Piper
-            if voice_id.startswith("en_"):
-                voices.append(
-                    VoiceInfo(
-                        id=voice_id,
-                        name=voice_id,
-                        language="en",
-                        engine="piper",
-                    )
-                )
+    # Also include Tagalog (MMS) as a special entry
+    if "tl" not in voices_by_lang:
+        voices_by_lang["tl"] = []
 
-    # 2. Add MMS-TTS Tagalog model (always available if dependencies installed)
-    mms = get_mms()
-    voices.append(
-        VoiceInfo(
-            id="facebook/mms-tts-tgl",
-            name="MMS-TTS Tagalog",
-            language="tl",
-            quality="high",
-            engine="mms",
-        )
+    mms_available = check_mms_deps()
+    voices_by_lang["tl"].append(
+        {
+            "id": "facebook/mms-tts-tgl",
+            "name": "Tagalog (MMS)",
+            "language": "tl",
+            "region": "PH",
+            "quality": "medium",
+            "engine": "mms",
+            "gender": "mixed",
+            "vibe": ["natural"],
+            "description": "Neural Tagalog voice via Facebook MMS-TTS",
+            "available": mms_available,
+        }
     )
 
-    if not voices:
-        logger.warning("No voices available.")
+    # Convert to VoiceInfo models grouped by language
+    result: dict[str, list[VoiceInfo]] = {}
+    for lang_code, vlist in voices_by_lang.items():
+        result[lang_code] = [VoiceInfo(**v) for v in vlist]
 
-    return VoicesResponse(voices=voices)
+    if not result:
+        logger.warning("No voices discovered.")
+
+    return GroupedVoicesResponse(languages=result)
 
 
 # ── GET /api/health ───────────────────────────────────────────────────────
@@ -124,15 +162,16 @@ async def list_voices() -> VoicesResponse:
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     """Lightweight health-check endpoint."""
-    piper = get_piper()
-    mms = get_mms()
+    piper_available = check_piper_binary()
+    mms_available = check_mms_deps()
 
     model_dir = settings.models_dir
-    models_found = len(list(model_dir.glob("*.onnx"))) if model_dir.is_dir() else 0
+    models_found = len(list(model_dir.rglob("*.onnx"))) if model_dir.is_dir() else 0
 
     return HealthResponse(
         status="ok",
-        piper_available=piper.is_available(),
-        mms_available=mms.is_available(),
+        piper_available=piper_available,
+        mms_available=mms_available,
         models_found=models_found,
+        languages=list(settings.supported_languages.keys()),
     )

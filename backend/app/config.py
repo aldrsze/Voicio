@@ -12,6 +12,90 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
+# ── Supported languages (up to 10 models) ──────────────────────────────
+#
+# Each entry maps a language code to its TTS engine configuration.
+# Piper models: download .onnx + .onnx.json from https://huggingface.co/rhasspy/piper-voices
+#   and place them in the models directory.
+# MMS models: download automatically from Hugging Face Hub on first use.
+#
+# To add a language, add a new entry here and ensure the model files exist.
+# To remove a language, comment out or delete its entry.
+
+SUPPORTED_LANGUAGES: dict[str, dict[str, str]] = {
+    "en": {
+        "name": "English (US)",
+        "native_name": "English",
+        "engine": "piper",
+        "voice": "en_US-lessac-high",
+        "quality": "high",
+    },
+    "es": {
+        "name": "Spanish",
+        "native_name": "Español",
+        "engine": "piper",
+        "voice": "es_ES-sharvard-medium",
+        "quality": "medium",
+    },
+    "fr": {
+        "name": "French",
+        "native_name": "Français",
+        "engine": "piper",
+        "voice": "fr_FR-siwis-medium",
+        "quality": "medium",
+    },
+    "de": {
+        "name": "German",
+        "native_name": "Deutsch",
+        "engine": "piper",
+        "voice": "de_DE-eva-medium",
+        "quality": "medium",
+    },
+    "it": {
+        "name": "Italian",
+        "native_name": "Italiano",
+        "engine": "piper",
+        "voice": "it_IT-paola-medium",
+        "quality": "medium",
+    },
+    "pt": {
+        "name": "Portuguese (Brazil)",
+        "native_name": "Português",
+        "engine": "piper",
+        "voice": "pt_BR-edresson-medium",
+        "quality": "medium",
+    },
+    "nl": {
+        "name": "Dutch",
+        "native_name": "Nederlands",
+        "engine": "piper",
+        "voice": "nl_NL-mls-medium",
+        "quality": "medium",
+    },
+    "pl": {
+        "name": "Polish",
+        "native_name": "Polski",
+        "engine": "piper",
+        "voice": "pl_PL-mls-medium",
+        "quality": "medium",
+    },
+    "ru": {
+        "name": "Russian",
+        "native_name": "Русский",
+        "engine": "piper",
+        "voice": "ru_RU-irina-medium",
+        "quality": "medium",
+    },
+    "tl": {
+        "name": "Tagalog",
+        "native_name": "Tagalog",
+        "engine": "mms",
+        "model_id": "facebook/mms-tts-tgl",
+        "quality": "medium",
+    },
+}
+
+
 @dataclass(frozen=True)
 class Settings:
     # ── Paths ──────────────────────────────────────────────────────────
@@ -32,19 +116,17 @@ class Settings:
     # Piper binary path (auto-resolved on PATH if not set)
     piper_binary: str = os.getenv("TT_PIPER_BINARY", "piper")
 
-    voice_english: str = os.getenv("TT_VOICE_EN", "en_US-lessac-high")
-    voice_spanish: str = os.getenv("TT_VOICE_ES", "es_ES-sharvard-medium")
+    # Default language for requests that don't specify one
+    default_language: str = os.getenv("TT_DEFAULT_LANG", "en")
 
     # ── Limits (per PRD) ──────────────────────────────────────────────
     max_text_length: int = 5000
     max_speed: float = 2.0
     min_speed: float = 0.5
 
-    # ── Language detection ─────────────────────────────────────────────
-    # "fasttext", "langdetect", or "lingua"
-    detector_backend: str = os.getenv("TT_DETECTOR", "langdetect")
-    # Path to fasttext quantised model (only used when backend == "fasttext")
-    fasttext_model: str | None = os.getenv("TT_FASTTEXT_MODEL", None)
+    # ── Languages ──────────────────────────────────────────────────────
+    # Map of language code → engine configuration
+    supported_languages: dict = field(default_factory=lambda: dict(SUPPORTED_LANGUAGES))
 
 
 def _resolve_models_dir() -> Path:

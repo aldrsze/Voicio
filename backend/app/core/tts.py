@@ -1,8 +1,9 @@
-"""TTS engine abstraction — Piper for English, MMS-TTS for Tagalog.
+"""TTS engine abstraction — Piper for most languages, MMS-TTS for Tagalog.
 
-PiperTTS spawns the ``piper`` CLI subprocess (fast, low memory).
-MMSTTS uses Hugging Face ``transformers`` + ``torch`` for the MMS-TTS
-model (``facebook/mms-tts-tgl``) — the only accessible native Tagalog TTS.
+PiperTTS spawns the ``piper`` CLI subprocess per voice model.
+MMSTTS uses Hugging Face ``transformers`` + ``torch`` for ``facebook/mms-tts-tgl``.
+
+Engines are cached by voice ID (for Piper) or model ID (for MMS).
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from typing import NamedTuple
 import numpy as np
 
 from app.config import settings
+from app.core.voice_profiles import discover_models
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ class SynthesisResult(NamedTuple):
 
     audio_bytes: bytes
     sample_rate: int
-    language: str  # "en" or "tl"
+    language: str
 
 
 class TTSBackend(ABC):
@@ -41,7 +43,6 @@ class TTSBackend(ABC):
         self,
         text: str,
         *,
-        voice: str | None = None,
         speed: float = 1.0,
     ) -> SynthesisResult:
         ...
@@ -52,63 +53,87 @@ class TTSBackend(ABC):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  English — Piper TTS
+#  Piper TTS
 # ══════════════════════════════════════════════════════════════════════════
 
 
 class PiperTTS(TTSBackend):
-    """Synchronous wrapper around the ``piper`` CLI.
+    """Synchronous wrapper around the ``piper`` CLI for a single voice model.
 
-    Used for English TTS with high-quality Piper voice models
-    (``.onnx`` + ``.onnx.json`` in ``settings.models_dir``).
-
-    Each call spawns a subprocess — fast enough for the MVP's sequential
-    chunk-generation model and avoids GIL headaches with Piper's C++
-    bindings during concurrent requests.
+    Each instance is bound to a specific voice (e.g. ``en_US-lessac-high``).
+    The model path is resolved dynamically from the models directory,
+    supporting both flat and nested directory layouts.
     """
 
-    def __init__(self, binary: str | None = None) -> None:
+    def __init__(self, voice: str, binary: str | None = None) -> None:
         self._binary = binary or settings.piper_binary
+        self._voice = voice
         self._available: bool | None = None  # None=unchecked, True=ok, False=missing
+        self._model_path: Path | None = None
+        self._config_path: Path | None = None
+        self._resolve_model()
         self._validate_binary()
+
+    # ── Model file resolution ─────────────────────────────────────────
+
+    def _resolve_model(self) -> None:
+        """Locate the ``.onnx`` and ``.onnx.json`` files in the models tree."""
+        model_dir = settings.models_dir
+        if not model_dir.is_dir():
+            self._available = False
+            return
+
+        # Search recursively — models may be nested in subdirectories
+        for onnx_file in model_dir.rglob(f"{self._voice}.onnx"):
+            self._model_path = onnx_file
+            config = onnx_file.with_suffix(".onnx.json")
+            self._config_path = config if config.exists() else None
+            return
+
+        # Fallback: flat file in models_dir (legacy layout)
+        flat_model = model_dir / f"{self._voice}.onnx"
+        if flat_model.exists():
+            self._model_path = flat_model
+            flat_config = model_dir / f"{self._voice}.onnx.json"
+            self._config_path = flat_config if flat_config.exists() else None
+            return
+
+        self._available = False
+        logger.warning("Voice model %r not found anywhere under %s", self._voice, model_dir)
 
     # ── Public API ───────────────────────────────────────────────────
 
     def is_available(self) -> bool:
-        return self._available is True
+        return (
+            self._available is True
+            and self._model_path is not None
+            and self._model_path.exists()
+            and self._config_path is not None
+            and self._config_path.exists()
+        )
 
     def synthesise(
         self,
         text: str,
         *,
-        voice: str | None = None,
         speed: float = 1.0,
     ) -> SynthesisResult:
-        """Synthesise English *text* with the given Piper *voice*."""
-        if self._available is False:
+        """Synthesise *text* using the configured Piper voice model."""
+        if not self.is_available():
             raise RuntimeError(
-                f"Piper binary {self._binary!r} is not available.\n\n"
-                f"Install it with:\n"
-                f"    pip install piper-tts\n\n"
-                f"Then check /api/health to confirm."
-            )
-
-        voice = voice or settings.voice_english
-        model_path = settings.models_dir / f"{voice}.onnx"
-        config_path = settings.models_dir / f"{voice}.onnx.json"
-
-        if not model_path.exists():
-            raise FileNotFoundError(
-                f"Piper model not found at {model_path}. "
-                f"Place {voice}.onnx and {voice}.onnx.json in {settings.models_dir}."
+                f"Piper voice {self._voice!r} is not available.\n\n"
+                f"Ensure the piper binary is installed (`pip install piper-tts`)\n"
+                f"and model files exist at:\n"
+                f"  {self._model_path}\n"
+                f"  {self._config_path}"
             )
 
         length_scale = round(1.0 / max(settings.min_speed, min(speed, settings.max_speed)), 3)
 
         cmd = [
             self._binary,
-            "--model", str(model_path),
-            "--config", str(config_path),
+            "--model", str(self._model_path),
+            "--config", str(self._config_path),
             "--output-raw",
             "--length-scale", str(length_scale),
         ]
@@ -135,16 +160,22 @@ class PiperTTS(TTSBackend):
             stderr = exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
             raise RuntimeError(f"Piper failed (exit {exc.returncode}): {stderr}") from exc
 
+        # Infer language from voice name prefix (e.g. "en_US" → "en")
+        inferred_lang = self._voice.split("_")[0]
+
         return SynthesisResult(
             audio_bytes=proc.stdout,
-            sample_rate=self._read_sample_rate(config_path),
-            language="en",
+            sample_rate=self._read_sample_rate(),
+            language=inferred_lang,
         )
 
     # ── Helpers ──────────────────────────────────────────────────────
 
     def _validate_binary(self) -> None:
         """Check whether the piper binary responds. Sets ``self._available``."""
+        if self._available is False:
+            return  # already failed model resolution
+
         try:
             proc = subprocess.run(
                 [self._binary, "--help"],
@@ -163,13 +194,14 @@ class PiperTTS(TTSBackend):
             self._available = False
             logger.warning("Piper binary %r not found on PATH.", self._binary)
 
-    @staticmethod
-    def _read_sample_rate(config_path: Path) -> int:
+    def _read_sample_rate(self) -> int:
         """Parse the sample rate from Piper's JSON config (default 22050)."""
         import json
 
+        if self._config_path is None:
+            return 22050
         try:
-            with open(config_path) as f:
+            with open(self._config_path) as f:
                 cfg = json.load(f)
             return int(cfg.get("audio", {}).get("sample_rate", 22050))
         except Exception:
@@ -177,20 +209,16 @@ class PiperTTS(TTSBackend):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  Tagalog — MMS-TTS (Hugging Face)
+#  MMS-TTS (Tagalog)
 # ══════════════════════════════════════════════════════════════════════════
 
 
-# Module-level flag cached so we don't spam the warning every call.
+# Module-level flag so we don't spam the warning every time.
 _MMS_DEPS_WARNED: bool = False
 
 
 class MMSTTS(TTSBackend):
     """Tagalog TTS via Hugging Face ``facebook/mms-tts-tgl``.
-
-    The MMS (Massively Multilingual Speech) model from Facebook Research
-    is the first production-quality neural TTS model with native Tagalog
-    support.
 
     Requires ``transformers[torch]`` and ``torch`` — installed as optional
     dependencies (see ``requirements.txt``).
@@ -213,13 +241,9 @@ class MMSTTS(TTSBackend):
         self,
         text: str,
         *,
-        voice: str | None = None,
         speed: float = 1.0,
     ) -> SynthesisResult:
-        """Synthesise Tagalog *text* using the MMS-TTS model.
-
-        ``voice`` is ignored — the Tagalog model is fixed.
-        """
+        """Synthesise Tagalog *text* using the MMS-TTS model."""
         if not self._available:
             raise RuntimeError(
                 f"MMS model {self._model_id} is not loaded. "
@@ -286,59 +310,105 @@ class MMSTTS(TTSBackend):
             self._tokenizer = AutoTokenizer.from_pretrained(self._model_id)
             self._sample_rate = self._model.config.sampling_rate
             self._available = True
-            logger.info("MMS model %s loaded successfully (sample rate: %d Hz)", self._model_id, self._sample_rate)
+            logger.info(
+                "MMS model %s loaded successfully (sample rate: %d Hz)",
+                self._model_id, self._sample_rate,
+            )
         except Exception as exc:
             logger.error("Failed to load MMS model %s: %s", self._model_id, exc)
             self._available = False
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  Singletons & dispatch
+#  Engine registry
 # ══════════════════════════════════════════════════════════════════════════
 
-_piper: PiperTTS | None = None
-_mms: MMSTTS | None = None
+_engines: dict[str, TTSBackend] = {}
 
 
-def get_piper() -> PiperTTS:
-    """Return the module-level Piper singleton (lazy initialised)."""
-    global _piper
-    if _piper is None:
-        _piper = PiperTTS()
-    return _piper
+def get_engine(language: str, voice: str | None = None) -> TTSBackend:
+    """Return (or create) the TTS engine for the given language or voice.
+
+    Engines are cached once created. When a specific ``voice`` ID is
+    provided, it is used as the cache key and the Piper model is resolved
+    dynamically. Otherwise the language's default voice from config is used.
+
+    Args:
+        language: Language code (e.g. ``"en"``, ``"tl"``).
+        voice: Optional specific voice ID (e.g. ``"en_US-amy-medium"``).
+
+    Returns:
+        A ``TTSBackend`` instance ready for synthesis.
+    """
+    # If a specific voice is given, cache by voice ID
+    if voice:
+        if voice not in _engines:
+            _engines[voice] = PiperTTS(voice=voice)
+        return _engines[voice]
+
+    # Otherwise, use the language-default voice from config
+    if language not in _engines:
+        lang_config = settings.supported_languages.get(language)
+        if not lang_config:
+            raise ValueError(
+                f"Unsupported language: {language!r}. "
+                f"Supported: {', '.join(settings.supported_languages)}"
+            )
+
+        if lang_config["engine"] == "mms":
+            _engines[language] = MMSTTS(model_id=lang_config["model_id"])
+        elif lang_config["engine"] == "piper":
+            default_voice = lang_config.get("voice", "")
+            _engines[language] = PiperTTS(voice=default_voice)
+        else:
+            raise ValueError(
+                f"Unknown engine type {lang_config['engine']!r} for language {language!r}"
+            )
+
+    return _engines[language]
 
 
-def get_mms() -> MMSTTS:
-    """Return the module-level MMS-TTS singleton (lazy initialised)."""
-    global _mms
-    if _mms is None:
-        _mms = MMSTTS()
-    return _mms
+# ══════════════════════════════════════════════════════════════════════════
+#  Health-check utilities (lightweight, no instance needed)
+# ══════════════════════════════════════════════════════════════════════════
 
 
-def get_tts_for_language(language: str) -> TTSBackend:
-    """Return the correct TTS backend for the given language code."""
-    if language == "tl":
-        return get_mms()
-    return get_piper()
+def check_piper_binary() -> bool:
+    """Quick check if the piper CLI binary is available (no model loading)."""
+    try:
+        binary = settings.piper_binary
+        proc = subprocess.run([binary, "--help"], capture_output=True, timeout=10)
+        return proc.returncode == 0
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return False
+
+
+def check_mms_deps() -> bool:
+    """Check if MMS dependencies are importable (no model loading)."""
+    try:
+        import torch  # noqa: F401
+        import transformers  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Async dispatch
+# ══════════════════════════════════════════════════════════════════════════
 
 
 async def synthesise_async(
     text: str,
     *,
-    voice: str | None = None,
     language: str = "en",
+    voice: str | None = None,
     speed: float = 1.0,
 ) -> SynthesisResult:
     """Non-blocking wrapper — runs the correct TTS engine in a thread pool."""
-    tts = get_tts_for_language(language)
+    engine = get_engine(language, voice=voice)
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
         None,
-        lambda: tts.synthesise(text, voice=voice, speed=speed),
+        lambda: engine.synthesise(text, speed=speed),
     )
-
-
-# ── Backwards-compat alias ─────────────────────────────────────────────────
-# Existing code that calls ``get_tts()`` for Piper still works.
-get_tts = get_piper

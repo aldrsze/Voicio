@@ -29,8 +29,8 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Voicio TTS",
-    description="Bilingual Text-to-Speech for English & Tagalog (Taglish)",
-    version="0.1.0",
+    description="Multi-language Text-to-Speech (English, Spanish, French, German, Italian, Portuguese, Dutch, Polish, Russian, Tagalog)",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -56,7 +56,14 @@ app.include_router(router, prefix="/api")
 @app.on_event("startup")
 async def startup() -> None:
     """Log configuration on startup so operators can verify settings."""
-    logger.info("Voicio TTS starting — host=%s port=%s debug=%s", settings.host, settings.port, settings.debug)
+    logger.info(
+        "Voicio TTS starting — host=%s port=%s debug=%s",
+        settings.host, settings.port, settings.debug,
+    )
     logger.info("Models directory: %s", settings.models_dir)
-    logger.info("Detector backend: %s", settings.detector_backend)
-    logger.info("Default voices — en: %s (Piper)  tl: facebook/mms-tts-tgl (MMS-TTS)", settings.voice_english)
+
+    langs = ", ".join(
+        f"{code} ({cfg['name']})"
+        for code, cfg in settings.supported_languages.items()
+    )
+    logger.info("Configured languages: %s", langs)

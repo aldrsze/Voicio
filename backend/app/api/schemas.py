@@ -12,22 +12,29 @@ class TTSRequest(BaseModel):
         ...,
         min_length=1,
         max_length=5000,
-        description="Input text (mixed English & Tagalog)",
-        examples=["Hello guys, kamusta kayo? Welcome to the app."],
+        description="Input text to synthesise",
+        examples=["Hello, welcome to the app!"],
     )
-    voice_eng: str | None = Field(
-        None,
-        description="Override for the English Piper voice model name",
+    language: str = Field(
+        "en",
+        description=(
+            "Language code for TTS output. "
+            "Must be one of the configured languages (e.g. 'en', 'es', 'fr', 'tl'). "
+            "Ignored if a specific ``voice`` is provided."
+        ),
+        examples=["en", "es", "fr", "tl"],
     )
-    voice_tgl: str | None = Field(
+    voice: str | None = Field(
         None,
         description=(
-            "Deprecated — Tagalog uses the fixed facebook/mms-tts-tgl model. "
-            "This field is accepted but ignored for backwards compatibility."
+            "Specific voice model ID (e.g. ``en_US-amy-medium``, ``en_GB-cori-high``). "
+            "When provided, ``language`` is inferred from the voice prefix. "
+            "When omitted, the default voice for ``language`` is used."
         ),
+        examples=["en_US-amy-medium", "en_GB-cori-high"],
     )
     speed: float = Field(
-        1.0,
+        0.85,
         ge=0.5,
         le=2.0,
         description="Playback speed multiplier (0.5 – 2.0)",
@@ -35,19 +42,24 @@ class TTSRequest(BaseModel):
 
 
 class VoiceInfo(BaseModel):
-    """Describes a single available voice."""
+    """Describes a single available voice model."""
 
-    id: str = Field(description="Unique voice identifier (model name)")
-    name: str = Field(description="Human-readable voice name")
-    language: str = Field(description="Language code: 'en' or 'tl'")
+    id: str = Field(description="Unique voice identifier (e.g. 'en_US-amy-medium')")
+    name: str = Field(description="Display name (e.g. 'Amy')")
+    language: str = Field(description="Language code (e.g. 'en', 'es', 'tl')")
+    region: str = Field(default="", description="Region code (e.g. 'US', 'GB')")
     quality: str = Field(default="medium", description="Quality tier: low, medium, high")
     engine: str = Field(default="piper", description="TTS engine: 'piper' or 'mms'")
+    gender: str = Field(default="mixed", description="Voice gender: female, male, non-binary, mixed")
+    vibe: list[str] = Field(default_factory=list, description="Descriptive tags like 'warm', 'bright', 'deep'")
+    description: str = Field(default="", description="Short description of the voice character")
+    available: bool = Field(default=False, description="Whether model files are present and ready")
 
 
-class VoicesResponse(BaseModel):
-    """Response for ``GET /api/voices``."""
+class GroupedVoicesResponse(BaseModel):
+    """Response for ``GET /api/voices`` — voices grouped by language."""
 
-    voices: list[VoiceInfo]
+    languages: dict[str, list[VoiceInfo]]
 
 
 class HealthResponse(BaseModel):
@@ -55,5 +67,6 @@ class HealthResponse(BaseModel):
 
     status: str = Field(default="ok")
     piper_available: bool = Field(description="Whether the piper binary was found on PATH")
-    mms_available: bool = Field(description="Whether the MMS-TTS Tagalog model is loaded")
-    models_found: int = Field(description="Number of Piper .onnx model files detected")
+    mms_available: bool = Field(description="Whether the MMS-TTS dependencies are installed")
+    models_found: int = Field(description="Number of Piper .onnx model files detected in models dir")
+    languages: list[str] = Field(description="List of configured language codes")
