@@ -28,6 +28,7 @@ export function GeneratorPage() {
   const [speed, setSpeed] = useState(0.85);
   const [selectedVoice, setSelectedVoice] = useState<string>("");
   const [autoGenerate, setAutoGenerate] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
 
   // ── History state ──
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -111,6 +112,10 @@ export function GeneratorPage() {
     prevStatusRef.current = status;
 
     if (status === "ready" && audioUrl && prev === "generating") {
+      if (autoPlay) {
+        play();
+      }
+
       // Clone the blob so this URL survives the next cleanup in useTTS
       fetch(audioUrl)
         .then((r) => r.blob())
@@ -154,7 +159,7 @@ export function GeneratorPage() {
           });
         });
     }
-  }, [status, audioUrl, text, selectedVoice, speed, byLanguage]);
+  }, [status, audioUrl, text, selectedVoice, speed, byLanguage, autoPlay, play]);
 
   // ── Set default voice when voices load ──
   const [initialized, setInitialized] = useState(false);
@@ -361,13 +366,26 @@ export function GeneratorPage() {
                 disabled={status === "generating"}
               />
 
-              {/* Auto-generate toggle */}
-              <Toggle
-                label="Auto-generate"
-                enabled={autoGenerate}
-                onChange={setAutoGenerate}
-                disabled={status === "generating"}
-              />
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-8">
+                {/* Auto-generate toggle */}
+                <div className="flex-1">
+                  <Toggle
+                    label="Auto-generate"
+                    enabled={autoGenerate}
+                    onChange={setAutoGenerate}
+                    disabled={status === "generating"}
+                  />
+                </div>
+                {/* Auto-play toggle */}
+                <div className="flex-1">
+                  <Toggle
+                    label="Auto-play"
+                    enabled={autoPlay}
+                    onChange={setAutoPlay}
+                    disabled={status === "generating"}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* ── Status bar with integrated controls ── */}

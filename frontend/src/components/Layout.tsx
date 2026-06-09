@@ -84,7 +84,7 @@ export function Layout() {
           </div>
           
           {/* Mobile Navigation */}
-          <nav className="flex sm:hidden flex-col items-center justify-center gap-4 pt-4 pb-3 mt-2 border-t border-black/5 dark:border-white/5 font-sans text-xs font-semibold text-black/60 dark:text-white/60">
+          <nav className="flex sm:hidden flex-row items-center justify-center gap-6 pt-3 pb-2 mt-2 border-t border-black/5 dark:border-white/5 font-sans text-xs font-semibold text-black/60 dark:text-white/60">
             <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
             <a 
               href="/#features" 

@@ -72,15 +72,22 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
             {entries.map((entry) => {
               const isPlaying = playingId === entry.id;
               return (
-                <button
+                <div
                   key={entry.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => onPlay(entry)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onPlay(entry);
+                    }
+                  }}
                   className={`
-                    group flex w-full items-start gap-3 border-b border-black/5 px-4 py-3 text-left
+                    group flex w-full cursor-pointer items-start gap-3 border-b border-black/5 px-4 py-3 text-left
                     transition-all duration-150 last:border-b-0
-                    hover:bg-black/[0.02] active:bg-black/[0.04]
-                    dark:border-white/5 dark:hover:bg-white/[0.02] dark:active:bg-white/[0.04]
+                    hover:bg-black/2 active:bg-black/4
+                    dark:border-white/5 dark:hover:bg-white/2 dark:active:bg-white/4
                   `}
                 >
                   {/* Play icon */}
@@ -128,7 +135,7 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
                       {entry.voiceName || entry.voiceId}
                     </p>
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>

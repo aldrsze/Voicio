@@ -8,8 +8,66 @@ import {
   Trash2,
   Upload,
   X,
+  Globe,
 } from "lucide-react";
+import * as Flags from 'country-flag-icons/react/3x2';
+import { hasFlag } from 'country-flag-icons';
 import { useModels, type CatalogVoice, parseVoiceName, parseLanguageCode, parseQuality } from "../hooks/useModels";
+
+const langNames = new Intl.DisplayNames(['en'], { type: 'language' });
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+
+const langToCountry: Record<string, string> = {
+  en: 'US', es: 'ES', fr: 'FR', de: 'DE', it: 'IT', pt: 'PT', ru: 'RU',
+  zh: 'CN', ja: 'JP', ko: 'KR', ar: 'SA', hi: 'IN', nl: 'NL', tr: 'TR',
+  pl: 'PL', sv: 'SE', da: 'DK', fi: 'FI', no: 'NO', cs: 'CZ', el: 'GR',
+  hu: 'HU', ro: 'RO', sk: 'SK', uk: 'UA', vi: 'VN', th: 'TH', id: 'ID',
+  ms: 'MY', bg: 'BG', hr: 'HR', sr: 'RS', sl: 'SI', et: 'EE', lv: 'LV',
+  lt: 'LT', ca: 'ES', eu: 'ES', gl: 'ES', fil: 'PH', fa: 'IR', he: 'IL',
+  ur: 'PK', bn: 'BD', sw: 'KE', ta: 'IN', te: 'IN', mr: 'IN', gu: 'IN',
+  kn: 'IN', ml: 'IN', pa: 'IN', am: 'ET', is: 'IS', kk: 'KZ', mk: 'MK',
+  cy: 'GB', ga: 'IE', af: 'ZA', sq: 'AL', hy: 'AM', az: 'AZ', ka: 'GE'
+};
+
+function getCountryCode(lang: string) {
+  const parts = lang.split(/[-_]/);
+  let code = parts.length > 1 ? parts[1].toUpperCase() : null;
+  if (!code || !hasFlag(code)) {
+    const baseLang = parts[0].toLowerCase();
+    code = langToCountry[baseLang] || baseLang.toUpperCase();
+  }
+  if (code && hasFlag(code)) return code as keyof typeof Flags;
+  return null;
+}
+
+function FlagIcon({ lang }: { lang: string }) {
+  const code = getCountryCode(lang);
+  if (!code) return <Globe className="w-2.5 h-2.5 text-black/50 dark:text-white/50" />;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const Flag = (Flags as any)[code] || (Flags as any).default?.[code];
+  if (!Flag) return <Globe className="w-2.5 h-2.5 text-black/50 dark:text-white/50" />;
+  return (
+    <div className="shrink-0 overflow-hidden flex items-center justify-center">
+      <Flag style={{ width: '12px', height: '8px', display: 'block' }} />
+    </div>
+  );
+}
+
+function getLanguageName(langCode: string) {
+  const parts = langCode.split(/[-_]/);
+  const base = parts[0];
+  try {
+    let name = langNames.of(base) || base;
+    if (parts.length > 1) {
+       const region = parts[1].toUpperCase();
+       const rName = regionNames.of(region) || region;
+       return `${name} (${rName})`;
+    }
+    return name;
+  } catch {
+    return langCode;
+  }
+}
 
 type Tab = "installed" | "catalog" | "import";
 
@@ -90,6 +148,7 @@ export function ModelManager({ onModelChanged }: Props) {
   const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [jsonFile, setJsonFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const canImport = Boolean(onnxFile && jsonFile && !importing);
 
   const handleImport = useCallback(async () => {
     if (!onnxFile || !jsonFile) return;
@@ -120,8 +179,6 @@ export function ModelManager({ onModelChanged }: Props) {
       onModelChanged();
     }
   }, [onnxFile, jsonFile, importModel, showToast, onModelChanged]);
-
-  const canImport = !!(onnxFile && jsonFile && !importing);
 
   return (
     <div className="mt-4 border border-black/10 bg-white dark:border-white/10 dark:bg-bento-bg-dark">
@@ -206,7 +263,72 @@ export function ModelManager({ onModelChanged }: Props) {
   );
 }
 
-// ── Sub-components ──────────────────────────────────────────────────────
+function ModelCard({
+  voice,
+  isBusy,
+  action,
+  actionLabel,
+  actionIcon: ActionIcon,
+  actionIntent = "primary"
+}: {
+  voice: CatalogVoice;
+  isBusy: boolean;
+  action: () => void;
+  actionLabel: string;
+  actionIcon: React.ElementType;
+  actionIntent?: "primary" | "danger";
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 border border-black/5 px-3 py-2 dark:border-white/5">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-sans text-xs font-semibold text-black dark:text-white">
+            {voice.name}
+          </span>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+          <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+            <FlagIcon lang={voice.language} />
+            {getLanguageName(voice.language)}
+          </span>
+          <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+            {voice.quality}
+          </span>
+          {voice.size_mb && (
+            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+              ~{voice.size_mb} MB
+            </span>
+          )}
+        </div>
+        
+        {voice.description && (
+          <p className="mt-1 truncate font-sans text-[10px] text-black/40 dark:text-white/40">
+            {voice.description}
+          </p>
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={action}
+        disabled={isBusy}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center border border-black/10 transition-colors disabled:opacity-40 dark:border-white/10 ${
+          actionIntent === "danger"
+            ? "text-black/40 hover:border-red-400 hover:text-red-500 dark:text-white/40 dark:hover:border-red-400 dark:hover:text-red-400"
+            : "bg-white text-black/40 hover:bg-black/5 hover:text-black/70 dark:bg-transparent dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
+        }`}
+        aria-label={`${actionLabel} ${voice.name}`}
+      >
+        {isBusy ? (
+          <LoaderCircle className="h-3 w-3 animate-spin" />
+        ) : (
+          <ActionIcon className="h-3 w-3" />
+        )}
+      </button>
+    </div>
+  );
+}
 
 function InstalledTab({
   voices,
@@ -233,45 +355,17 @@ function InstalledTab({
 
   return (
     <div className="flex flex-col gap-1">
-      {voices.map((v) => {
-        const isBusy = busyVoiceId === v.id;
-        return (
-          <div
-            key={v.id}
-            className="flex items-center justify-between gap-2 border border-black/5 px-3 py-2 dark:border-white/5"
-          >
-            <div className="min-w-0 flex-1">
-              <span className="font-sans text-xs font-semibold text-black dark:text-white">
-                {v.name}
-              </span>
-              <span className="ml-1.5 font-sans text-[10px] text-black/40 dark:text-white/50">
-                {v.id}
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-                  {v.quality}
-                </span>
-                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-                  {v.language.toUpperCase()}
-                </span>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onDelete(v)}
-              disabled={isBusy}
-              className="flex h-6 w-6 shrink-0 items-center justify-center border border-black/10 text-black/40 transition-colors hover:border-red-400 hover:text-red-500 disabled:opacity-40 dark:border-white/10 dark:text-white/40 dark:hover:border-red-400 dark:hover:text-red-400"
-              aria-label={`Remove ${v.name}`}
-            >
-              {isBusy ? (
-                <LoaderCircle className="h-3 w-3 animate-spin" />
-              ) : (
-                <Trash2 className="h-3 w-3" />
-              )}
-            </button>
-          </div>
-        );
-      })}
+      {voices.map((v) => (
+        <ModelCard
+          key={v.id}
+          voice={v}
+          isBusy={busyVoiceId === v.id}
+          action={() => onDelete(v)}
+          actionLabel="Remove"
+          actionIcon={Trash2}
+          actionIntent="danger"
+        />
+      ))}
     </div>
   );
 }
@@ -314,53 +408,17 @@ function CatalogTab({
 
   return (
     <div className="flex flex-col gap-1">
-      {voices.map((v) => {
-        const isBusy = busyVoiceId === v.id;
-        return (
-          <div
-            key={v.id}
-            className="flex items-center justify-between gap-2 border border-black/5 px-3 py-2 dark:border-white/5"
-          >
-            <div className="min-w-0 flex-1">
-              <span className="font-sans text-xs font-semibold text-black dark:text-white">
-                {v.name}
-              </span>
-              <span className="ml-1.5 font-sans text-[10px] text-black/40 dark:text-white/50">
-                {v.id}
-              </span>
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-                  {v.quality}
-                </span>
-                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-                  {v.language.toUpperCase()}
-                </span>
-                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-                  ~{v.size_mb}MB
-                </span>
-              </div>
-              {v.description && (
-                <p className="mt-0.5 truncate font-sans text-[10px] text-black/30 dark:text-white/30">
-                  {v.description}
-                </p>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => onDownload(v)}
-              disabled={isBusy}
-              className="flex h-6 w-6 shrink-0 items-center justify-center border border-black/10 bg-white text-black/40 transition-colors hover:bg-black/5 hover:text-black/70 disabled:opacity-40 dark:border-white/10 dark:bg-transparent dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
-              aria-label={`Download ${v.name}`}
-            >
-              {isBusy ? (
-                <LoaderCircle className="h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="h-3 w-3" />
-              )}
-            </button>
-          </div>
-        );
-      })}
+      {voices.map((v) => (
+        <ModelCard
+          key={v.id}
+          voice={v}
+          isBusy={busyVoiceId === v.id}
+          action={() => onDownload(v)}
+          actionLabel="Download"
+          actionIcon={Download}
+          actionIntent="primary"
+        />
+      ))}
     </div>
   );
 }

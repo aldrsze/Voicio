@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { listInstalledIds, loadModel, removeModel, saveModel, type StoredModel } from "../lib/modelStorage";
+import { listModels, loadModel, removeModel, saveModel, type StoredModel } from "../lib/modelStorage";
 
 const API_BASE = "/api";
 
@@ -123,18 +123,38 @@ export function useModels() {
   const refreshCatalog = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
-      const [res, installedIds] = await Promise.all([
+      const [res, localModels] = await Promise.all([
         fetch(`${API_BASE}/models/catalog`),
-        listInstalledIds(),
+        listModels(),
       ]);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: { voices: CatalogVoice[] } = await res.json();
 
+      const localMap = new Map(localModels.map(m => [m.voiceId, m]));
+
       // Mark voices as installed if they exist in IndexedDB OR on the backend's filesystem
       const enriched = data.voices.map((v) => ({
         ...v,
-        installed: v.installed || installedIds.has(v.id),
+        installed: v.installed || localMap.has(v.id),
       }));
+
+      // Add missing local models
+      for (const m of localModels) {
+        if (!enriched.some(v => v.id === m.voiceId)) {
+          enriched.push({
+            id: m.voiceId,
+            name: m.name,
+            language: m.language,
+            region: m.language,
+            quality: m.quality,
+            gender: "mixed",
+            vibe: [],
+            description: "Custom imported model",
+            size_mb: m.sizeMb,
+            installed: true,
+          });
+        }
+      }
 
       setState((prev) => ({
         ...prev,
@@ -230,13 +250,37 @@ export function useModels() {
         };
         await saveModel(stored);
 
-        setState((prev) => ({
-          ...prev,
-          busyVoiceId: null,
-          catalog: prev.catalog.map((v) =>
-            v.id === voiceId ? { ...v, installed: true } : v,
-          ),
-        }));
+        setState((prev) => {
+          const exists = prev.catalog.some(v => v.id === voiceId);
+          if (exists) {
+            return {
+              ...prev,
+              busyVoiceId: null,
+              catalog: prev.catalog.map((v) =>
+                v.id === voiceId ? { ...v, installed: true } : v,
+              ),
+            };
+          }
+          return {
+            ...prev,
+            busyVoiceId: null,
+            catalog: [
+              ...prev.catalog,
+              {
+                id: voiceId,
+                name,
+                language,
+                region: language,
+                quality,
+                gender: "mixed",
+                vibe: [],
+                description: "Custom imported model",
+                size_mb: sizeMb,
+                installed: true,
+              }
+            ],
+          };
+        });
         return true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Import failed";

@@ -39,7 +39,7 @@ export function StatusBar({
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-3 border border-black/10 bg-white p-3 sm:px-4 sm:py-2.5 dark:border-white/10 dark:bg-bento-bg-dark">
       {/* ── Left: Waveform + status text ── */}
-      <div className="flex min-w-0 w-full sm:w-auto items-center gap-2.5">
+      <div className="flex min-w-0 w-full sm:w-auto items-center justify-center sm:justify-start gap-2.5">
         <Waveform active={isActive} />
         <div className="flex flex-col">
           <span
@@ -62,7 +62,7 @@ export function StatusBar({
       </div>
 
       {/* ── Right: Action buttons ── */}
-      <div className="flex w-full sm:w-auto shrink-0 flex-col min-[400px]:flex-row items-stretch sm:items-center gap-2 sm:gap-1 mt-1 sm:mt-0">
+      <div className="flex w-full sm:w-auto shrink-0 flex-col min-[400px]:flex-row items-stretch sm:items-stretch gap-2 sm:gap-1 mt-1 sm:mt-0">
         {/* Generate button (always available when text+voice are set) */}
         {canGenerate && (
           <button
@@ -120,7 +120,7 @@ export function StatusBar({
         {hasAudio && !isPlaying && (
           <button
             onClick={onDownload}
-            className="inline-flex items-center justify-center w-full min-[400px]:w-auto border border-black/10 bg-white p-2 sm:p-1.5 text-black/40 transition-all hover:bg-black/5 hover:text-black/70 active:scale-[0.97] dark:border-white/10 dark:bg-transparent dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
+            className="inline-flex items-center justify-center w-full min-[400px]:w-auto border border-black/10 bg-white px-3 py-2 sm:px-2.5 sm:py-1.5 text-black/40 transition-all hover:bg-black/5 hover:text-black/70 active:scale-[0.97] dark:border-white/10 dark:bg-transparent dark:text-white/40 dark:hover:bg-white/10 dark:hover:text-white/70"
             aria-label="Download"
           >
             <Download className="h-3 w-3" />
