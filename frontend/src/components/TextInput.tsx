@@ -29,12 +29,12 @@ export function TextInput({ maxLength = 5000, ...props }: Props) {
           className={`
             w-full resize-none border bg-gray-50 px-4 py-3.5
             font-sans text-base leading-relaxed text-black
-            placeholder:text-black/30
+            placeholder:text-black/50
             transition-colors duration-150
             focus:outline-none focus:ring-1 focus:ring-black/30
             disabled:cursor-not-allowed disabled:opacity-50
             dark:bg-neutral-900 dark:text-white
-            dark:placeholder:text-white/30
+            dark:placeholder:text-white/50
             dark:focus:ring-white/30
             ${props.disabled
               ? "border-black/10 dark:border-white/10"
@@ -47,7 +47,7 @@ export function TextInput({ maxLength = 5000, ...props }: Props) {
           className={`
             pointer-events-none absolute bottom-2.5 right-3
             text-xs tabular-nums
-            ${charCount >= maxLength ? "text-red-500 font-semibold" : "text-black/40 dark:text-white/40"}
+            ${charCount >= maxLength ? "text-red-500 font-semibold" : "text-black/60 dark:text-white/60"}
           `}
         >
           {charCount}/{maxLength}

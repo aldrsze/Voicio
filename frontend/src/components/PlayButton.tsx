@@ -83,7 +83,7 @@ export function PlayButton({
       {hasAudio && (
         <button
           onClick={onDownload}
-          className="inline-flex cursor-pointer items-center gap-1.5 border border-black/10 bg-white px-4 py-2.5 font-sans text-sm font-medium text-black/60 transition-all hover:bg-black/5 active:scale-[0.97] dark:border-white/10 dark:bg-transparent dark:text-white/60 dark:hover:bg-white/10"
+          className="inline-flex cursor-pointer items-center gap-1.5 border border-black/10 bg-white px-4 py-2.5 font-sans text-sm font-medium text-black/70 transition-all hover:bg-black/5 active:scale-[0.97] dark:border-white/10 dark:bg-transparent dark:text-white/80 dark:hover:bg-white/10"
         >
           <Download className="h-4 w-4" />
           Download

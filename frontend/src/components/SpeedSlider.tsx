@@ -47,7 +47,7 @@ export function SpeedSlider({ value, onChange, disabled }: Props) {
               disabled:cursor-not-allowed
               ${Math.abs(value - m) < 0.04
                 ? "text-black font-bold dark:text-white"
-                : "text-black/40 hover:text-black/70 dark:text-white/40 dark:hover:text-white/70"
+                : "text-black/60 hover:text-black/80 dark:text-white/60 dark:hover:text-white/80"
               }
             `}
           >

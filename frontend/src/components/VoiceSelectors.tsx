@@ -123,7 +123,7 @@ export function VoiceSelector({
               ${
                 engineFilter === tab.key
                   ? "bg-black text-white dark:bg-white dark:text-black"
-                  : "border border-black/10 bg-white text-black/50 hover:bg-black/5 hover:text-black dark:border-white/10 dark:bg-transparent dark:text-white/50 dark:hover:bg-white/10 dark:hover:text-white"
+                  : "border border-black/10 bg-white text-black/60 hover:bg-black/5 hover:text-black dark:border-white/10 dark:bg-transparent dark:text-white/70 dark:hover:bg-white/10 dark:hover:text-white"
               }
             `}
           >
@@ -134,7 +134,7 @@ export function VoiceSelector({
               className={`ml-0.5 px-1.5 py-0.5 text-[10px] tabular-nums ${
                 engineFilter === tab.key
                   ? "bg-white/20 text-white/90 dark:bg-black/20 dark:text-black/90"
-                  : "bg-black/5 text-black/40 dark:bg-white/10 dark:text-white/40"
+                  : "bg-black/5 text-black/60 dark:bg-white/10 dark:text-white/60"
               }`}
             >
               {tab.count}
@@ -205,7 +205,7 @@ export function VoiceSelector({
         {/* Chevron */}
         <ChevronDown
           aria-hidden
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-black/40 dark:text-white/40"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-black/60 dark:text-white/60"
         />
       </div>
 
@@ -214,7 +214,7 @@ export function VoiceSelector({
         <div className="mt-1 flex flex-wrap items-center gap-1.5 px-1">
           {/* Gender badge */}
           {selectedVoiceInfo.gender && selectedVoiceInfo.gender !== "mixed" && (
-            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/60 dark:border-white/10 dark:text-white/60">
+            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {genderIcon(selectedVoiceInfo.gender)}
               {selectedVoiceInfo.gender}
             </span>
@@ -224,20 +224,20 @@ export function VoiceSelector({
           {selectedVoiceInfo.vibe?.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="inline-flex border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-medium text-black/50 dark:border-white/10 dark:bg-white/5 dark:text-white/50"
+              className="inline-flex border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-medium text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
             >
               {tag}
             </span>
           ))}
           {selectedVoiceInfo.vibe && selectedVoiceInfo.vibe.length > 3 && (
-            <span className="text-[10px] text-black/30 dark:text-white/30">
+            <span className="text-[10px] text-black/50 dark:text-white/50">
               +{selectedVoiceInfo.vibe.length - 3}
             </span>
           )}
 
           {/* Quality badge */}
           {selectedVoiceInfo.quality && (
-            <span className="inline-flex items-center border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/60 dark:border-white/10 dark:text-white/60">
+            <span className="inline-flex items-center border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.quality}
             </span>
           )}
@@ -252,7 +252,7 @@ export function VoiceSelector({
                     ? "Model downloads on first use — Hugging Face MMS-TTS"
                     : undefined
               }
-              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-black/60 dark:border-white/10 dark:text-white/60"
+              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
             >
               {selectedVoiceInfo.engine === "edge" ? (
                 <Zap className="h-3 w-3" />
@@ -267,7 +267,7 @@ export function VoiceSelector({
           {selectedVoiceInfo.description && (
             <span
               title={selectedVoiceInfo.description}
-              className="ml-auto cursor-help text-black/30 hover:text-black/60 dark:text-white/30 dark:hover:text-white/60"
+              className="ml-auto cursor-help text-black/50 hover:text-black/70 dark:text-white/50 dark:hover:text-white/80"
             >
               <Info className="h-3 w-3" />
             </span>

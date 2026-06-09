@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Moon, Sun, Volume2 } from "lucide-react";
 import { TextInput } from "./components/TextInput";
+import { Toggle } from "./components/Toggle";
 import { VoiceSelector } from "./components/VoiceSelectors";
 import { SpeedSlider } from "./components/SpeedSlider";
 import { PlayButton } from "./components/PlayButton";
@@ -21,6 +22,7 @@ export default function App() {
   const [text, setText] = useState("");
   const [speed, setSpeed] = useState(0.85);
   const [selectedVoice, setSelectedVoice] = useState<string>("");
+  const [autoGenerate, setAutoGenerate] = useState(false);
 
   const speedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,7 +74,7 @@ export default function App() {
         speedDebounceRef.current = null;
       }
 
-      if (hasText && text.trim().length > 0) {
+      if (autoGenerate && hasText && text.trim().length > 0) {
         let lang = "en";
         for (const [l, voices] of Object.entries(byLanguage)) {
           if (voices.some((v) => v.id === voiceId)) {
@@ -83,7 +85,7 @@ export default function App() {
         generate(text, lang, voiceId, speed);
       }
     },
-    [hasText, text, speed, byLanguage, generate],
+    [autoGenerate, hasText, text, speed, byLanguage, generate],
   );
 
   // ── Speed change handler (debounced auto-regeneration) ──
@@ -91,7 +93,7 @@ export default function App() {
     (newSpeed: number) => {
       setSpeed(newSpeed);
 
-      if (hasText && selectedVoice) {
+      if (autoGenerate && hasText && selectedVoice) {
         if (speedDebounceRef.current) {
           clearTimeout(speedDebounceRef.current);
         }
@@ -101,7 +103,7 @@ export default function App() {
         );
       }
     },
-    [hasText, selectedVoice, text, selectedLanguage, generate],
+    [autoGenerate, hasText, selectedVoice, text, selectedLanguage, generate],
   );
 
   // ── Keyboard shortcut: Ctrl+Enter / Cmd+Enter ──
@@ -145,7 +147,7 @@ export default function App() {
               <h1 className="font-sans text-2xl font-bold tracking-tight">
                 Voicio
               </h1>
-              <p className="font-sans text-xs text-black/50 dark:text-white/50">
+              <p className="font-sans text-xs text-black/60 dark:text-white/70">
                 Multi-language Text-to-Speech
               </p>
             </div>
@@ -190,6 +192,14 @@ export default function App() {
               onChange={handleSpeedChange}
               disabled={status === "generating"}
             />
+
+            {/* Auto-generate toggle */}
+            <Toggle
+              label="Auto-generate"
+              enabled={autoGenerate}
+              onChange={setAutoGenerate}
+              disabled={status === "generating"}
+            />
           </div>
 
           {/* ── Action row ──────────────────────────────────── */}
@@ -216,11 +226,13 @@ export default function App() {
 
         {/* ── Footer ────────────────────────────────────────── */}
         <p
-          className="animate-in mt-8 text-center font-sans text-[11px] text-black/50 dark:text-white/50"
+          className="animate-in mt-8 text-center font-sans text-[11px] text-black/60 dark:text-white/70"
           style={{ "--delay": "300ms" } as React.CSSProperties}
         >
           {hasText && selectedVoice
-            ? "⚡ Speed and voice changes auto-generate — hit ⌘↵ to generate manually."
+            ? autoGenerate
+              ? "⚡ Auto-generate is on — speed and voice changes regenerate automatically."
+              : "Auto-generate is off — toggle it on to regenerate on speed/voice changes."
             : "Select a voice and type text to generate speech."}
         </p>
       </main>
@@ -228,14 +240,14 @@ export default function App() {
       {/* ── Fixed bottom-right shortcut ─────────────────── */}
       {hasText && selectedVoice && (
         <div className="pointer-events-none fixed bottom-4 right-4 z-50 hidden items-center gap-1.5 sm:flex">
-          <span className="font-sans text-[11px] text-black/30 dark:text-white/30">
+          <span className="font-sans text-[11px] text-black/50 dark:text-white/50">
             Generate
           </span>
-          <kbd className="pointer-events-auto border border-black/10 bg-white/80 px-1.5 py-0.5 font-sans text-[10px] text-black/50 backdrop-blur-sm dark:border-white/10 dark:bg-black/80 dark:text-white/50">
-            ⌘
+          <kbd className="pointer-events-auto border border-black/10 bg-white/80 px-1.5 py-0.5 font-sans text-[10px] text-black/60 backdrop-blur-sm dark:border-white/10 dark:bg-black/80 dark:text-white/70">
+            Ctrl
           </kbd>
-          <span className="font-sans text-[10px] text-black/30 dark:text-white/30">+</span>
-          <kbd className="pointer-events-auto border border-black/10 bg-white/80 px-1.5 py-0.5 font-sans text-[10px] text-black/50 backdrop-blur-sm dark:border-white/10 dark:bg-black/80 dark:text-white/50">
+          <span className="font-sans text-[10px] text-black/50 dark:text-white/50">+</span>
+          <kbd className="pointer-events-auto border border-black/10 bg-white/80 px-1.5 py-0.5 font-sans text-[10px] text-black/60 backdrop-blur-sm dark:border-white/10 dark:bg-black/80 dark:text-white/70">
             ↵
           </kbd>
         </div>

@@ -26,7 +26,7 @@ export function StatusBar({ status, error }: Props) {
             className={`font-sans text-xs font-medium uppercase tracking-wide ${
               status === "error"
                 ? "text-red-500"
-                : "text-black/50 dark:text-white/50"
+                : "text-black/70 dark:text-white/70"
             }`}
           >
             {STATUS_LABELS[status]}
@@ -39,7 +39,7 @@ export function StatusBar({ status, error }: Props) {
         </div>
       </div>
       {status === "ready" && (
-        <span className="rounded-full bg-black/5 px-2.5 py-0.5 font-sans text-[11px] font-semibold text-black/60 dark:bg-white/10 dark:text-white/60">
+        <span className="rounded-full bg-black/5 px-2.5 py-0.5 font-sans text-[11px] font-semibold text-black/70 dark:bg-white/10 dark:text-white/80">
           ✓ Ready
         </span>
       )}
