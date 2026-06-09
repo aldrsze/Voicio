@@ -12,7 +12,7 @@ import { useVoices, voiceDisplayName } from "../hooks/useVoices";
 import { loadModel } from "../lib/modelStorage";
 import type { AppStatus, VoiceInfo } from "../types";
 
-/** Determine the voice ID for a language's first available voice */
+// Default voice for language
 function defaultVoiceForLang(
   byLanguage: Record<string, { id: string }[]>,
   lang: string,
@@ -20,7 +20,7 @@ function defaultVoiceForLang(
   return byLanguage[lang]?.[0]?.id ?? null;
 }
 
-/** Max history entries before the oldest are evicted */
+// Max history capacity
 const MAX_HISTORY = 20;
 
 export function GeneratorPage() {
@@ -30,11 +30,11 @@ export function GeneratorPage() {
   const [autoGenerate, setAutoGenerate] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
 
-  // ── History state ──
+  // History
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyPlayingId, setHistoryPlayingId] = useState<number | null>(null);
   const historyIdRef = useRef(0);
-  /** Tracks blob URLs created for history so we can revoke them on eviction */
+  // History blob URLs
   const historyUrlsRef = useRef<Set<string>>(new Set());
 
   const speedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +44,7 @@ export function GeneratorPage() {
   const { status, error, audioUrl, generate, play, stop } = useTTS();
 
 
-  // ── Imported (browser-stored) voice tracking ──
+  // Local voices
   const [importedVoiceIds, setImportedVoiceIds] = useState<Set<string>>(new Set());
 
   const refreshImported = useCallback(async () => {
@@ -52,12 +52,12 @@ export function GeneratorPage() {
     setImportedVoiceIds(await listInstalledIds());
   }, []);
 
-  // Load imported voice IDs on mount
+  // Init local voices
   useEffect(() => {
     refreshImported();
   }, [refreshImported]);
 
-  // Merge imported voices into byLanguage so they appear in the selector
+  // Merge local voices
   const mergedByLanguage = useMemo(() => {
     if (importedVoiceIds.size === 0) return byLanguage;
     const merged: Record<string, VoiceInfo[]> = {};
@@ -86,7 +86,7 @@ export function GeneratorPage() {
     return merged;
   }, [byLanguage, importedVoiceIds]);
 
-  // ── Generate helper that handles imported vs bundled voices ──
+  // Generate speech
   const generateWithVoice = useCallback(
     async (voiceId: string, text: string, lang: string, spd: number) => {
       let modelOpts: UploadModelOptions | undefined;
@@ -105,7 +105,7 @@ export function GeneratorPage() {
     [importedVoiceIds, generate],
   );
 
-  // Detect status transitions to "ready" to capture history entries
+  // Track status transitions
   const prevStatusRef = useRef<AppStatus>(status);
   useEffect(() => {
     const prev = prevStatusRef.current;
@@ -116,14 +116,14 @@ export function GeneratorPage() {
         play();
       }
 
-      // Clone the blob so this URL survives the next cleanup in useTTS
+      // Clone blob for history
       fetch(audioUrl)
         .then((r) => r.blob())
         .then((blob) => {
           const historyUrl = URL.createObjectURL(blob);
           historyUrlsRef.current.add(historyUrl);
 
-          // Resolve voice name
+          // Get voice name
           let voiceName = voiceDisplayName(selectedVoice);
           for (const voices of Object.values(byLanguage)) {
             const found = voices.find((v) => v.id === selectedVoice);
@@ -146,7 +146,7 @@ export function GeneratorPage() {
 
           setHistory((prev) => {
             const next = [entry, ...prev];
-            // Evict oldest entries beyond MAX_HISTORY
+            // Evict old entries
             if (next.length > MAX_HISTORY) {
               const evicted = next.slice(MAX_HISTORY);
               for (const e of evicted) {
@@ -161,7 +161,7 @@ export function GeneratorPage() {
     }
   }, [status, audioUrl, text, selectedVoice, speed, byLanguage, autoPlay, play]);
 
-  // ── Set default voice when voices load ──
+  // Set default voice
   const [initialized, setInitialized] = useState(false);
   const mergedAll = useMemo(
     () => Object.values(mergedByLanguage).flat(),
@@ -175,7 +175,7 @@ export function GeneratorPage() {
     setInitialized(true);
   }
 
-  // Clean up speed and text debounce timers on unmount
+  // Clear debounces
   useEffect(() => {
     return () => {
       if (speedDebounceRef.current) clearTimeout(speedDebounceRef.current);
@@ -183,7 +183,7 @@ export function GeneratorPage() {
     };
   }, []);
 
-  // Clean up all history blob URLs on unmount
+  // Revoke history URLs
   useEffect(() => {
     return () => {
       for (const url of historyUrlsRef.current) {
@@ -193,7 +193,7 @@ export function GeneratorPage() {
     };
   }, []);
 
-  // Infer language from the selected voice
+  // Get voice language
   const selectedLanguage = useMemo(() => {
     if (!selectedVoice) return "en";
     for (const [lang, voices] of Object.entries(mergedByLanguage)) {
@@ -204,13 +204,13 @@ export function GeneratorPage() {
 
   const hasText = text.trim().length > 0;
 
-  // ── Manual generate handler ──
+  // Generate handler
   const handleGenerate = useCallback(() => {
     if (!hasText || !selectedVoice || status === "generating") return;
     generateWithVoice(selectedVoice, text, selectedLanguage, speed);
   }, [text, selectedLanguage, selectedVoice, speed, hasText, status, generateWithVoice]);
 
-  // ── Text change handler (debounced auto-regeneration) ──
+  // Text input handler
   const handleTextChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newText = e.target.value;
@@ -230,7 +230,7 @@ export function GeneratorPage() {
     [autoGenerate, selectedVoice, selectedLanguage, speed, generateWithVoice],
   );
 
-  // Cancel pending text debounce when auto-generate is turned off
+  // Cancel debounce
   useEffect(() => {
     if (!autoGenerate && textDebounceRef.current) {
       clearTimeout(textDebounceRef.current);
@@ -238,7 +238,7 @@ export function GeneratorPage() {
     }
   }, [autoGenerate]);
 
-  // ── Voice change handler (immediate auto-regeneration) ──
+  // Voice select handler
   const handleVoiceChange = useCallback(
     (voiceId: string) => {
       setSelectedVoice(voiceId);
@@ -262,7 +262,7 @@ export function GeneratorPage() {
     [autoGenerate, hasText, text, speed, mergedByLanguage, generateWithVoice],
   );
 
-  // ── Speed change handler (debounced auto-regeneration) ──
+  // Speed change handler
   const handleSpeedChange = useCallback(
     (newSpeed: number) => {
       setSpeed(newSpeed);
@@ -280,7 +280,7 @@ export function GeneratorPage() {
     [autoGenerate, hasText, selectedVoice, text, selectedLanguage, generateWithVoice],
   );
 
-  // ── Keyboard shortcut: Ctrl+Enter / Cmd+Enter ──
+  // Keyboard shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
@@ -305,7 +305,7 @@ export function GeneratorPage() {
     document.body.removeChild(a);
   }, [audioUrl]);
 
-  // ── History playback (no-op if already playing) ──
+  // History playback
   const handleHistoryPlay = useCallback(
     (entry: HistoryEntry) => {
       if (historyPlayingId === entry.id) return; // already playing
@@ -320,7 +320,7 @@ export function GeneratorPage() {
     [historyPlayingId],
   );
 
-  // ── History download ──
+  // History download
   const handleHistoryDownload = useCallback((entry: HistoryEntry) => {
     const a = document.createElement("a");
     a.href = entry.audioUrl;
@@ -332,9 +332,9 @@ export function GeneratorPage() {
 
   return (
     <main className="mx-auto mt-0 md:mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8 overflow-x-hidden">
-      {/* ── Generator + History side by side ──────────────── */}
+      {/* Main Layout */}
       <div id="generator" className="flex flex-col gap-4 xl:flex-row xl:items-stretch scroll-mt-8">
-          {/* ── Generator card ────────────────────────────── */}
+          {/* Generator */}
           <div
             className="animate-in flex flex-1 w-full flex-col border border-black/10 bg-white p-5 sm:p-7 dark:border-white/10 dark:bg-bento-bg-dark"
             style={{ "--delay": "100ms" } as React.CSSProperties}
@@ -388,7 +388,7 @@ export function GeneratorPage() {
               </div>
             </div>
 
-            {/* ── Status bar with integrated controls ── */}
+            {/* Controls */}
             <div
               className="mt-6"
               style={{ "--delay": "200ms" } as React.CSSProperties}
@@ -405,7 +405,7 @@ export function GeneratorPage() {
             </div>
           </div>
 
-          {/* ── History panel ─────────────────────────────── */}
+          {/* History */}
           <div
             className="animate-in flex w-full flex-col xl:w-80 xl:min-w-80"
             style={{ "--delay": "150ms" } as React.CSSProperties}
@@ -419,7 +419,7 @@ export function GeneratorPage() {
           </div>
         </div>
 
-        {/* ── Footer ────────────────────────────────────────── */}
+        {/* Footer */}
         <p
           className="animate-in mt-8 text-center font-sans text-[11px] text-black/60 dark:text-white/70"
           style={{ "--delay": "300ms" } as React.CSSProperties}
@@ -430,7 +430,7 @@ export function GeneratorPage() {
               : "Auto-generate is off — toggle it on to regenerate on speed/voice changes."
             : "Select a voice and type text to generate speech."}
         </p>
-      {/* ── Fixed bottom-right shortcut ─────────────────── */}
+      {/* Shortcut hint */}
       {hasText && selectedVoice && (
         <div className="pointer-events-none fixed bottom-4 right-4 z-50 hidden items-center gap-1.5 sm:flex">
           <span className="font-sans text-[11px] text-black/50 dark:text-white/50">

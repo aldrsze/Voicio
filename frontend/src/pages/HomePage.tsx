@@ -53,7 +53,7 @@ export function HomePage() {
 
   return (
     <main className="mx-auto mt-0 md:mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8 overflow-hidden">
-      {/* Hero Section */}
+      {/* Hero */}
       <section 
         className="animate-in mb-8 md:mb-24 pb-24 md:pb-0 flex flex-col md:flex-row items-center justify-center gap-4 sm:gap-8 md:gap-12 min-h-[calc(100svh-8rem)]"
         style={{ "--delay": "50ms" } as React.CSSProperties}
@@ -66,7 +66,7 @@ export function HomePage() {
             <p className="mb-2 md:mb-8 max-w-2xl font-sans text-xs sm:text-lg md:text-xl text-black/60 dark:text-white/60 leading-relaxed">
               Voicio is a fast, completely local Text-to-Speech synthesizer running entirely in your browser.
             </p>
-            {/* Desktop Buttons */}
+            {/* Desktop Actions */}
             <div className="hidden md:flex flex-row gap-3">
               <Link 
                 to="/app"
@@ -91,7 +91,7 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Mobile Buttons */}
+        {/* Mobile Actions */}
         <div className="flex flex-col sm:flex-row gap-3 w-full md:hidden mt-2">
           <Link 
             to="/app"
@@ -108,7 +108,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Features Bento Grid */}
+      {/* Features */}
       <section 
         id="features" 
         className="animate-in mb-24 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
@@ -146,7 +146,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Simple Footer */}
+      {/* Footer */}
       <footer className="mt-32 border-t border-black/10 pt-8 pb-8 dark:border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="font-sans text-[11px] text-black/40 dark:text-white/40">
           © {new Date().getFullYear()} Built by Aldrsze. Free for everyone.

@@ -163,7 +163,7 @@ export function VoiceSelector({
     }
   }, [isOpen]);
 
-  // Count voices per engine
+  // Count engines
   const counts = useMemo(() => {
     let local = 0;
     let edge = 0;
@@ -176,7 +176,7 @@ export function VoiceSelector({
     return { local, edge, total: local + edge };
   }, [voicesByLanguage]);
 
-  // Filter voices by engine
+  // Filter by engine
   const filteredByLanguage = useMemo(() => {
     if (engineFilter === "all") return voicesByLanguage;
 
@@ -251,7 +251,7 @@ export function VoiceSelector({
         Voice
       </label>
 
-      {/* ── Engine filter tabs ── */}
+      {/* Engine filters */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-1" role="tablist" aria-label="Engine filter">
         {tabs.map((tab) => (
           <button
@@ -287,7 +287,7 @@ export function VoiceSelector({
           </button>
         ))}
 
-        {/* ── Models manager toggle ── */}
+        {/* Models toggle */}
         <button
           type="button"
           onClick={() => setShowModelManager((v) => !v)}
@@ -307,7 +307,7 @@ export function VoiceSelector({
         </button>
       </div>
 
-      {/* ── Custom Voice Dropdown ── */}
+      {/* Voice dropdown */}
       <div className="relative" ref={dropdownRef}>
         <button
           type="button"
@@ -364,7 +364,7 @@ export function VoiceSelector({
                   className="w-full pl-8 pr-3 py-2 text-xs font-sans bg-black/5 dark:bg-white/5 border border-transparent focus:border-black/20 dark:focus:border-white/20 focus:outline-none transition-colors dark:text-white"
                   onClick={(e) => e.stopPropagation()}
                   onKeyDown={(e) => {
-                    // Prevent closing dropdown when typing space
+                    // Keep open on space
                     if (e.key === ' ') e.stopPropagation();
                   }}
                 />
@@ -419,17 +419,17 @@ export function VoiceSelector({
         )}
       </div>
 
-      {/* Selected voice character card — monochrome badges */}
+      {/* Selected voice info */}
       {selectedVoiceInfo && (
         <div className="mt-1 flex flex-nowrap overflow-x-auto items-center gap-1.5 px-1 pb-1 -mb-1 scrollbar-hide">
-          {/* Gender badge */}
+          {/* Gender */}
           {selectedVoiceInfo.gender && selectedVoiceInfo.gender !== "mixed" && (
             <span className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.gender}
             </span>
           )}
 
-          {/* Vibe tags */}
+          {/* Vibes */}
           {selectedVoiceInfo.vibe?.slice(0, 3).map((tag) => (
             <span
               key={tag}
@@ -444,14 +444,14 @@ export function VoiceSelector({
             </span>
           )}
 
-          {/* Quality badge */}
+          {/* Quality */}
           {selectedVoiceInfo.quality && (
             <span className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.quality}
             </span>
           )}
 
-          {/* Engine badge */}
+          {/* Engine */}
           {selectedVoiceInfo.engine && selectedVoiceInfo.engine !== "piper" && (
             <span
               title={
@@ -467,7 +467,7 @@ export function VoiceSelector({
             </span>
           )}
 
-          {/* Description tooltip */}
+          {/* Tooltip */}
           {selectedVoiceInfo.description && (
             <span
               title={selectedVoiceInfo.description}
@@ -479,7 +479,7 @@ export function VoiceSelector({
         </div>
       )}
 
-      {/* ── Model Manager ── */}
+      {/* Model Manager */}
       {showModelManager && (
         <ModelManager onModelChanged={() => onModelChanged?.()} />
       )}
@@ -487,7 +487,7 @@ export function VoiceSelector({
   );
 }
 
-/** Format a voice for the select option text */
+// Format option name
 function formatVoiceOption(v: VoiceInfo): string {
   let name = v.name || voiceDisplayName(v.id);
   if (!name && v.id.includes("facebook/mms")) name = "Tagalog";

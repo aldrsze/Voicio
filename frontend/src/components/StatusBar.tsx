@@ -38,7 +38,7 @@ export function StatusBar({
 
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-3 border border-black/10 bg-white p-3 sm:px-4 sm:py-2.5 dark:border-white/10 dark:bg-bento-bg-dark">
-      {/* ── Left: Waveform + status text ── */}
+      {/* Status */}
       <div className="flex min-w-0 w-full sm:w-auto items-center justify-center sm:justify-start gap-2.5">
         <Waveform active={isActive} />
         <div className="flex flex-col">
@@ -61,9 +61,9 @@ export function StatusBar({
         </div>
       </div>
 
-      {/* ── Right: Action buttons ── */}
+      {/* Actions */}
       <div className="flex w-full sm:w-auto shrink-0 flex-col min-[400px]:flex-row items-stretch sm:items-stretch gap-2 sm:gap-1 mt-1 sm:mt-0">
-        {/* Generate button (always available when text+voice are set) */}
+        {/* Generate */}
         {canGenerate && (
           <button
             onClick={onGenerate}
@@ -94,7 +94,7 @@ export function StatusBar({
           </button>
         )}
 
-        {/* Play (when audio exists and not playing) */}
+        {/* Play */}
         {hasAudio && !isPlaying && (
           <button
             onClick={onPlay}
@@ -105,7 +105,7 @@ export function StatusBar({
           </button>
         )}
 
-        {/* Stop (when playing) */}
+        {/* Stop */}
         {isPlaying && (
           <button
             onClick={onStop}
@@ -116,7 +116,7 @@ export function StatusBar({
           </button>
         )}
 
-        {/* Download (when audio exists) */}
+        {/* Download */}
         {hasAudio && !isPlaying && (
           <button
             onClick={onDownload}
@@ -127,7 +127,7 @@ export function StatusBar({
           </button>
         )}
 
-        {/* Generating spinner when no generate button shown */}
+        {/* Spinner */}
         {isBusy && !canGenerate && (
           <span className="flex items-center justify-center w-full min-[400px]:w-auto gap-1.5 border border-black/10 bg-black/5 px-3 py-2 sm:py-1.5 font-sans text-[11px] text-black/50 dark:border-white/10 dark:bg-white/5 dark:text-white/50">
             <LoaderCircle className="h-3 w-3 animate-spin" />

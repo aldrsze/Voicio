@@ -10,11 +10,11 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getInitialTheme(): Theme {
-  // Check localStorage first
+  // Stored preference
   const stored = localStorage.getItem("theme");
   if (stored === "dark" || stored === "light") return stored;
 
-  // Respect system preference
+  // System preference
   if (window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
 
   return "light";
@@ -23,12 +23,12 @@ function getInitialTheme(): Theme {
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
-  // Sync .dark class on <html>
+  // Sync HTML class
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
   }, [theme]);
 
-  // Persist to localStorage
+  // Save to storage
   useEffect(() => {
     localStorage.setItem("theme", theme);
   }, [theme]);

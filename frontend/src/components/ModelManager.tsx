@@ -92,26 +92,26 @@ export function ModelManager({ onModelChanged }: Props) {
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch catalog on mount
+  // Fetch catalog
   useEffect(() => {
     refreshCatalog();
   }, [refreshCatalog]);
 
-  // Auto-dismiss toast after 4 s
+  // Auto-dismiss toast
   const showToast = useCallback((msg: string) => {
     setToast(msg);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(null), 4000);
   }, []);
 
-  // Cleanup toast timer on unmount
+  // Cleanup toast timer
   useEffect(() => {
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
     };
   }, []);
 
-  // Show errors as toasts
+  // Toast errors
   useEffect(() => {
     if (error) {
       showToast(error);
@@ -144,7 +144,7 @@ export function ModelManager({ onModelChanged }: Props) {
     [deleteModel, showToast, onModelChanged],
   );
 
-  // ── Import state ──
+  // Import state
   const [onnxFile, setOnnxFile] = useState<File | null>(null);
   const [jsonFile, setJsonFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
@@ -153,7 +153,7 @@ export function ModelManager({ onModelChanged }: Props) {
   const handleImport = useCallback(async () => {
     if (!onnxFile || !jsonFile) return;
 
-    // Infer voice ID from the .onnx filename
+    // Voice ID from filename
     const voiceId = onnxFile.name.endsWith(".onnx")
       ? onnxFile.name.slice(0, -5)
       : onnxFile.name;
@@ -182,7 +182,7 @@ export function ModelManager({ onModelChanged }: Props) {
 
   return (
     <div className="mt-4 border border-black/10 bg-white dark:border-white/10 dark:bg-bento-bg-dark">
-      {/* ── Toast ── */}
+      {/* Toast */}
       {toast && (
         <div className="flex items-center justify-between border-b border-black/5 bg-black/5 px-4 py-2 dark:border-white/5 dark:bg-white/5">
           <span className="font-sans text-xs text-black/80 dark:text-white/80">
@@ -198,7 +198,7 @@ export function ModelManager({ onModelChanged }: Props) {
         </div>
       )}
 
-      {/* ── Tabs ── */}
+      {/* Tabs */}
       <div className="flex border-b border-black/10 dark:border-white/10">
         {((
           [
@@ -228,7 +228,7 @@ export function ModelManager({ onModelChanged }: Props) {
         )))}
       </div>
 
-      {/* ── Body ── */}
+      {/* Body */}
       <div className="max-h-72 overflow-y-auto p-3">
         {tab === "installed" && (
           <InstalledTab

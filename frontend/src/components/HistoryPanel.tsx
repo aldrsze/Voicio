@@ -17,7 +17,7 @@ interface Props {
   playingId: number | null;
 }
 
-/** Relative time string — e.g. "2m ago", "just now" */
+// Relative time format
 function relativeTime(date: Date): string {
   const diff = Date.now() - date.getTime();
   const seconds = Math.floor(diff / 1000);
@@ -31,7 +31,7 @@ function relativeTime(date: Date): string {
   return `${days}d ago`;
 }
 
-/** Truncate text to ~55 chars, keeping whole words */
+// Truncate text
 function truncate(text: string, max = 55): string {
   if (text.length <= max) return text;
   const trimmed = text.slice(0, max);
@@ -44,7 +44,7 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
 
   return (
     <div className="flex flex-1 flex-col border border-black/10 bg-white dark:border-white/10 dark:bg-bento-bg-dark">
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between border-b border-black/10 px-4 py-2.5 dark:border-white/10">
         <span className="font-sans text-sm font-semibold tracking-wide text-black dark:text-white">
           History
@@ -56,7 +56,7 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
         )}
       </div>
 
-      {/* ── List ── */}
+      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center gap-1.5 px-4 py-12">
@@ -90,7 +90,7 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
                     dark:border-white/5 dark:hover:bg-white/2 dark:active:bg-white/4
                   `}
                 >
-                  {/* Play icon */}
+                  {/* Play */}
                   <span
                     className={`
                       mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border

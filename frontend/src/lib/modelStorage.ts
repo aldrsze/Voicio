@@ -1,32 +1,18 @@
-/** IndexedDB storage for user-imported Piper TTS model files.
-
-    Models are stored entirely in the browser so the backend can be
-    stateless (no persistent filesystem needed on the server).
-    When generating TTS, the model files are uploaded to the backend
-    on-demand via ``POST /api/tts-with-model``.
- */
+/** IndexedDB storage for local Piper TTS models. Uploaded to backend on-demand. */
 
 const DB_NAME = "voicio-models";
 const DB_VERSION = 1;
 const STORE_NAME = "models";
 
 export interface StoredModel {
-  /** Voice ID (e.g. ``"en_US-lessac-medium"``) */
-  voiceId: string;
-  /** Display name */
-  name: string;
-  /** Language code */
-  language: string;
-  /** Quality tier */
-  quality: string;
-  /** Estimated size in MB */
-  sizeMb: number;
-  /** .onnx file bytes */
-  onnx: ArrayBuffer;
-  /** .onnx.json file bytes */
-  config: ArrayBuffer;
-  /** When it was stored */
-  importedAt: number;
+  voiceId: string; // Voice ID (e.g., "en_US-lessac-medium")
+  name: string; // Display name
+  language: string; // Language code
+  quality: string; // Quality tier
+  sizeMb: number; // Size in MB
+  onnx: ArrayBuffer; // .onnx bytes
+  config: ArrayBuffer; // .onnx.json bytes
+  importedAt: number; // Timestamp
 }
 
 function openDB(): Promise<IDBDatabase> {
@@ -43,7 +29,7 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-/** Save a model to IndexedDB. */
+// Save model to DB
 export async function saveModel(model: StoredModel): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -60,7 +46,7 @@ export async function saveModel(model: StoredModel): Promise<void> {
   });
 }
 
-/** Load a single model by voice ID. Returns ``null`` if not found. */
+// Load model by ID
 export async function loadModel(voiceId: string): Promise<StoredModel | null> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -77,7 +63,7 @@ export async function loadModel(voiceId: string): Promise<StoredModel | null> {
   });
 }
 
-/** List all stored models. */
+// List stored models
 export async function listModels(): Promise<StoredModel[]> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
@@ -94,13 +80,13 @@ export async function listModels(): Promise<StoredModel[]> {
   });
 }
 
-/** Get the set of voice IDs that are stored locally. */
+// Local voice IDs
 export async function listInstalledIds(): Promise<Set<string>> {
   const models = await listModels();
   return new Set(models.map((m) => m.voiceId));
 }
 
-/** Remove a model from IndexedDB by voice ID. */
+// Remove model by ID
 export async function removeModel(voiceId: string): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {

@@ -3,53 +3,40 @@ import type { VoiceInfo } from "../types";
 
 const API_BASE = "/api";
 
-/** Internal state (no function members — safe for useState). */
+// State (data-only)
 interface VoicesState {
-  /** All voices flattened into one array */
-  all: VoiceInfo[];
-  /** Voices grouped by language code */
-  byLanguage: Record<string, VoiceInfo[]>;
-  /** Language codes that have available voices */
-  languages: string[];
+  all: VoiceInfo[]; // Flat list of all voices
+  byLanguage: Record<string, VoiceInfo[]>; // Voices grouped by language
+  languages: string[]; // List of language codes
   loading: boolean;
 }
 
-/** Public return type of the useVoices hook. */
+// Hook return type
 export interface GroupedVoices extends VoicesState {
-  /** Re-fetch the voice list from the backend */
-  refetch: () => Promise<void>;
+  refetch: () => Promise<void>; // Re-fetch voices
 }
 
-/**
- * Returns voice name portion from a voice ID.
- * Supports both Piper and Edge TTS formats:
- *   Piper: "en_US-amy-medium" → "Amy"
- *          "en_GB-cori-high" → "Cori"
- *   Edge:  "fil-PH-AngeloNeural" → "Angelo"
- *          "en-US-JennyNeural" → "Jenny"
- */
+// Get display name from voice ID (supports Piper and Edge formats)
 export function voiceDisplayName(voiceId: string): string {
-  // Edge TTS format: "{locale}-{Name}[Multilingual]Neural"
+  // Edge TTS: e.g., en-US-JennyNeural
   if (/Neural$/.test(voiceId)) {
     const parts = voiceId.split("-");
     const name = parts[parts.length - 1];
-    // Strip known suffixes in order of specificity
+    // Strip known suffixes
     for (const suffix of ["MultilingualNeural", "Neural"]) {
       if (name.endsWith(suffix)) {
         return name.slice(0, -suffix.length);
       }
     }
-    return name; // fallback — no known suffix
+    return name; // Fallback
   }
 
-  // Piper format: "lang_REGION-name-quality"
+  // Piper: lang_REGION-name-quality
   const parts = voiceId.split("-");
   if (parts.length < 3) return voiceId;
 
-  // The voice name is everything between lang_REGION (first part) and quality (last)
-  // e.g. "en_US-amy-medium" → parts = ["en_US", "amy", "medium"] → name = "amy"
-  // e.g. "en_GB-northern_english_male-medium" → name = "northern english male"
-  const nameParts = parts.slice(1, -1); // drop lang_region and quality
+  // Extract name between locale and quality
+  const nameParts = parts.slice(1, -1); // Drop locale & quality
   const name = nameParts
     .join(" ")
     .replace(/_/g, " ")

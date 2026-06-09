@@ -13,23 +13,15 @@ export interface CatalogVoice {
   vibe: string[];
   description: string;
   size_mb: number;
-  /** Whether the model is stored in IndexedDB (set by frontend) */
-  installed: boolean;
+  installed: boolean; // Installed in IndexedDB
 }
 
-/**
- * Build the Hugging Face download URL for a Piper model file.
- *
- * Mirror of the backend's ``_hf_download_url`` so the frontend can fetch
- * model files directly from Hugging Face without a server proxy.
- */
-/** Build the Hugging Face download URL for a Piper model file. */
+// HF download URL for Piper files
 export function hfDownloadUrl(voiceId: string, filename: string): string {
   const prefix = voiceId.split("-")[0]; // e.g. "en_US", "en_GB"
   const langDir = prefix === "en_GB" ? "en_GB" : prefix.split("_")[0];
 
-  // Voice name portion between region prefix and quality suffix
-  // Equivalent of Python's rsplit("-", 1)[0] — strip the last `-word`
+  // Extract voice name portion
   const withoutQuality = voiceId.replace(/-[^-]*$/, "");
   const name = withoutQuality.includes("-")
     ? withoutQuality.slice(withoutQuality.indexOf("-") + 1)
@@ -44,7 +36,7 @@ export function hfDownloadUrl(voiceId: string, filename: string): string {
   );
 }
 
-/** Parse a voice display name from its ID (front-end version). */
+// Parse voice display name from ID
 export function parseVoiceName(voiceId: string): string {
   const lastDash = voiceId.lastIndexOf("-");
   const withoutQuality = lastDash !== -1 ? voiceId.slice(0, lastDash) : voiceId;
@@ -57,29 +49,29 @@ export function parseVoiceName(voiceId: string): string {
     .trim();
 }
 
-/** Parse language code from a voice ID (e.g. "en_US-amy-medium" → "en"). */
+// Parse language code from ID
 export function parseLanguageCode(voiceId: string): string {
   return voiceId.split("_")[0];
 }
 
-/** Parse quality from a voice ID (last segment after "-"). */
+// Parse quality from ID
 export function parseQuality(voiceId: string): string {
   return voiceId.includes("-") ? voiceId.split("-").pop()! : "medium";
 }
 
-/** Filenames for a Piper voice's model file and config file. */
+// Model & config filenames
 function modelFiles(voiceId: string): [string, string] {
   return [`${voiceId}.onnx`, `${voiceId}.onnx.json`];
 }
 
-/** Fetch model bytes from Hugging Face for a catalog voice. */
+// Fetch model bytes from HF
 export async function downloadFromHf(
   voiceId: string,
   _onProgress?: (loaded: number, total: number) => void,
 ): Promise<{ onnx: ArrayBuffer; config: ArrayBuffer }> {
   const [onnxFilename, configFilename] = modelFiles(voiceId);
 
-  // Fetch .onnx and .onnx.json in parallel
+  // Fetch files in parallel
   const [onnxRes, configRes] = await Promise.all([
     fetch(hfDownloadUrl(voiceId, onnxFilename)),
     fetch(hfDownloadUrl(voiceId, configFilename)),
@@ -106,8 +98,7 @@ export async function downloadFromHf(
 interface ModelsState {
   catalog: CatalogVoice[];
   loading: boolean;
-  /** Currently downloading/deleting voice ID */
-  busyVoiceId: string | null;
+  busyVoiceId: string | null; // Busy voice ID
   error: string | null;
 }
 
@@ -119,7 +110,7 @@ export function useModels() {
     error: null,
   });
 
-  /** Fetch catalog from backend and merge with IndexedDB installed state. */
+  // Load catalog from backend and merge local storage
   const refreshCatalog = useCallback(async () => {
     setState((prev) => ({ ...prev, loading: true, error: null }));
     try {
@@ -132,7 +123,7 @@ export function useModels() {
 
       const localMap = new Map(localModels.map(m => [m.voiceId, m]));
 
-      // Mark voices as installed if they exist in IndexedDB OR on the backend's filesystem
+      // Check if installed
       const enriched = data.voices.map((v) => ({
         ...v,
         installed: v.installed || localMap.has(v.id),
@@ -167,7 +158,7 @@ export function useModels() {
     }
   }, []);
 
-  /** Download a model from Hugging Face and save to IndexedDB. */
+  // Download from HF and save to local storage
   const downloadModel = useCallback(
     async (voice: CatalogVoice): Promise<boolean> => {
       setState((prev) => ({ ...prev, busyVoiceId: voice.id, error: null }));
@@ -187,7 +178,7 @@ export function useModels() {
 
         await saveModel(stored);
 
-        // Refresh catalog to show installed
+        // Update catalog state
         setState((prev) => ({
           ...prev,
           busyVoiceId: null,
@@ -205,7 +196,7 @@ export function useModels() {
     [],
   );
 
-  /** Remove a model from IndexedDB. */
+  // Remove model from local storage
   const deleteModel = useCallback(async (voiceId: string): Promise<boolean> => {
     setState((prev) => ({ ...prev, busyVoiceId: voiceId, error: null }));
     try {
@@ -225,7 +216,7 @@ export function useModels() {
     }
   }, []);
 
-  /** Import user-supplied model files (from drag & drop or file picker). */
+  // Import custom model files
   const importModel = useCallback(
     async (
       voiceId: string,
@@ -291,7 +282,7 @@ export function useModels() {
     [],
   );
 
-  /** Get stored model data for use with TTS generation. */
+  // Get stored model
   const getStoredModel = useCallback(
     async (voiceId: string): Promise<StoredModel | null> => {
       return loadModel(voiceId);
@@ -299,7 +290,7 @@ export function useModels() {
     [],
   );
 
-  /** Clear error */
+  // Clear error
   const clearError = useCallback(() => {
     setState((prev) => ({ ...prev, error: null }));
   }, []);

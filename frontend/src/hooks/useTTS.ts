@@ -9,14 +9,11 @@ export interface TTSState {
   audioUrl: string | null;
 }
 
-/** Extra options for generating TTS with a user-imported model. */
+// Options for local model TTS
 export interface UploadModelOptions {
-  /** Voice identifier extracted from filename. */
-  voiceId: string;
-  /** Raw bytes of the .onnx model file. */
-  onnxBytes: ArrayBuffer;
-  /** Raw bytes of the .onnx.json config file. */
-  configBytes: ArrayBuffer;
+  voiceId: string; // Voice ID from filename
+  onnxBytes: ArrayBuffer; // .onnx bytes
+  configBytes: ArrayBuffer; // .onnx.json bytes
 }
 
 export function useTTS() {
@@ -30,19 +27,19 @@ export function useTTS() {
   const abortRef = useRef<AbortController | null>(null);
 
   const cleanup = useCallback(() => {
-    // Cancel any in-flight request
+    // Cancel active request
     if (abortRef.current) {
       abortRef.current.abort();
       abortRef.current = null;
     }
 
-    // Revoke the old blob URL
+    // Revoke old URL
     if (objectUrlRef.current) {
       URL.revokeObjectURL(objectUrlRef.current);
       objectUrlRef.current = null;
     }
 
-    // Destroy any existing audio element
+    // Destroy audio element
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -50,7 +47,7 @@ export function useTTS() {
     }
   }, []);
 
-  // Clean up on unmount
+  // Cleanup on unmount
   useEffect(() => cleanup, [cleanup]);
 
   const generate = useCallback(
@@ -59,8 +56,7 @@ export function useTTS() {
       language?: string,
       voice?: string,
       speed?: number,
-      /** When provided, the model is uploaded and used for this generation. */
-      uploadedModel?: UploadModelOptions,
+      uploadedModel?: UploadModelOptions, // Optional local model info
     ) => {
       cleanup();
       setState({ status: "generating", error: null, audioUrl: null });
@@ -72,7 +68,7 @@ export function useTTS() {
         let res: Response;
 
         if (uploadedModel) {
-          // ── Use multipart upload endpoint ──
+          // Multipart upload request
           const formData = new FormData();
           formData.append("text", text);
           formData.append("speed", String(speed ?? 0.85));
@@ -93,7 +89,7 @@ export function useTTS() {
             signal: controller.signal,
           });
         } else {
-          // ── Standard JSON endpoint ──
+          // JSON body request
           const body: Record<string, unknown> = {
             text,
             language: language ?? "en",
@@ -124,7 +120,7 @@ export function useTTS() {
         setState({ status: "ready", error: null, audioUrl: url });
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") {
-          return; // Silently ignore aborted requests
+          return; // Ignore aborts
         }
         const message = err instanceof Error ? err.message : "Something went wrong";
         setState({ status: "error", error: message, audioUrl: null });

@@ -12,12 +12,12 @@ export function Layout() {
         e.preventDefault();
         const isMobile = window.innerWidth < 768;
         const targetPosition = isMobile
-          ? el.getBoundingClientRect().top + window.scrollY - 180 // Top alignment with taller mobile header offset
-          : el.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2) + (el.offsetHeight / 2); // Centered for desktop
+          ? el.getBoundingClientRect().top + window.scrollY - 180 // Mobile scroll offset
+          : el.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2) + (el.offsetHeight / 2); // Desktop scroll offset
         
         const startPosition = window.scrollY;
         const distance = targetPosition - startPosition;
-        const duration = 1200; // 1.2s slow scroll
+        const duration = 1000; // Duration 1s
         let start: number | null = null;
         
         const animation = (currentTime: number) => {
@@ -72,7 +72,7 @@ export function Layout() {
               <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Github</a>
             </nav>
             
-            {/* Dark mode toggle */}
+            {/* Dark mode */}
             <button
               onClick={toggleTheme}
               className="flex h-9 w-9 items-center justify-center border border-black/10 bg-white text-sm hover:bg-black/5 dark:border-white/10 dark:bg-transparent dark:text-white dark:hover:bg-white/10"
@@ -83,7 +83,7 @@ export function Layout() {
           </div>
           </div>
           
-          {/* Mobile Navigation */}
+          {/* Mobile Nav */}
           <nav className="flex sm:hidden flex-row items-center justify-center gap-6 pt-3 pb-2 mt-2 border-t border-black/5 dark:border-white/5 font-sans text-xs font-semibold text-black/60 dark:text-white/60">
             <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
             <a 
