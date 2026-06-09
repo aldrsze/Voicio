@@ -50,7 +50,7 @@ export function HistoryPanel({ entries, onPlay, onDownload, playingId }: Props) 
           History
         </span>
         {!isEmpty && (
-          <span className="border border-black/10 bg-black/5 px-2 py-0.5 font-sans text-[10px] font-semibold tabular-nums text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
+          <span className="inline-flex items-center gap-1 border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-semibold uppercase tabular-nums text-black/70 dark:border-white/10 dark:bg-white/5 dark:text-white/80">
             {entries.length}
           </span>
         )}

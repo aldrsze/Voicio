@@ -247,9 +247,12 @@ function InstalledTab({
               <span className="ml-1.5 font-sans text-[10px] text-black/40 dark:text-white/50">
                 {v.id}
               </span>
-              <div className="flex gap-2">
-                <span className="font-sans text-[10px] text-black/40 dark:text-white/40">
-                  {v.quality} · {v.language.toUpperCase()}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+                  {v.quality}
+                </span>
+                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+                  {v.language.toUpperCase()}
                 </span>
               </div>
             </div>
@@ -325,9 +328,15 @@ function CatalogTab({
               <span className="ml-1.5 font-sans text-[10px] text-black/40 dark:text-white/50">
                 {v.id}
               </span>
-              <div className="flex gap-2">
-                <span className="font-sans text-[10px] text-black/40 dark:text-white/40">
-                  {v.quality} · {v.language.toUpperCase()} · ~{v.size_mb}MB
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+                  {v.quality}
+                </span>
+                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+                  {v.language.toUpperCase()}
+                </span>
+                <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+                  ~{v.size_mb}MB
                 </span>
               </div>
               {v.description && (

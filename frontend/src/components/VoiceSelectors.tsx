@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Cloud, HardDrive, Info, Package, Zap } from "lucide-react";
+import { ChevronDown, HardDrive, Info, Package, Zap } from "lucide-react";
 import type { VoiceInfo } from "../types";
 import { voiceDisplayName } from "../hooks/useVoices";
 import { ModelManager } from "./ModelManager";
@@ -20,18 +20,81 @@ const LANG_FLAGS: Record<string, string> = {
 };
 
 const LANG_LABELS: Record<string, string> = {
+  af: "Afrikaans",
+  am: "Amharic",
+  ar: "Arabic",
+  az: "Azerbaijani",
+  bg: "Bulgarian",
+  bn: "Bengali",
+  bs: "Bosnian",
+  ca: "Catalan",
+  cs: "Czech",
+  cy: "Welsh",
+  da: "Danish",
+  de: "German",
+  el: "Greek",
   en: "English",
   es: "Spanish",
+  et: "Estonian",
+  fa: "Persian",
+  fi: "Finnish",
   fr: "French",
-  de: "German",
+  ga: "Irish",
+  gl: "Galician",
+  gu: "Gujarati",
+  he: "Hebrew",
+  hi: "Hindi",
+  hr: "Croatian",
+  hu: "Hungarian",
+  id: "Indonesian",
+  is: "Icelandic",
   it: "Italian",
-  pt: "Portuguese",
+  iu: "Inuktitut",
+  ja: "Japanese",
+  jv: "Javanese",
+  ka: "Georgian",
+  kk: "Kazakh",
+  km: "Khmer",
+  kn: "Kannada",
+  ko: "Korean",
+  lo: "Lao",
+  lt: "Lithuanian",
+  lv: "Latvian",
+  mk: "Macedonian",
+  ml: "Malayalam",
+  mn: "Mongolian",
+  mr: "Marathi",
+  ms: "Malay",
+  mt: "Maltese",
+  my: "Burmese",
+  nb: "Norwegian",
+  ne: "Nepali",
   nl: "Dutch",
   pl: "Polish",
+  ps: "Pashto",
+  pt: "Portuguese",
+  ro: "Romanian",
   ru: "Russian",
-  hi: "Hindi",
-  zh: "Chinese",
+  si: "Sinhala",
+  sk: "Slovak",
+  sl: "Slovenian",
+  so: "Somali",
+  sq: "Albanian",
+  sr: "Serbian",
+  su: "Sundanese",
+  sv: "Swedish",
+  sw: "Swahili",
+  ta: "Tamil",
+  te: "Telugu",
+  th: "Thai",
   tl: "Tagalog",
+  tr: "Turkish",
+  uk: "Ukrainian",
+  ur: "Urdu",
+  uz: "Uzbek",
+  vi: "Vietnamese",
+  zh: "Chinese",
+  zu: "Zulu",
 };
 
 type EngineFilter = "all" | "local" | "edge";
@@ -238,7 +301,6 @@ export function VoiceSelector({
           {/* Gender badge */}
           {selectedVoiceInfo.gender && selectedVoiceInfo.gender !== "mixed" && (
             <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
-              {genderIcon(selectedVoiceInfo.gender)}
               {selectedVoiceInfo.gender}
             </span>
           )}
@@ -247,7 +309,7 @@ export function VoiceSelector({
           {selectedVoiceInfo.vibe?.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="inline-flex border border-black/10 bg-black/5 px-2 py-0.5 text-[10px] font-medium text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/70"
+              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
             >
               {tag}
             </span>
@@ -260,7 +322,7 @@ export function VoiceSelector({
 
           {/* Quality badge */}
           {selectedVoiceInfo.quality && (
-            <span className="inline-flex items-center border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.quality}
             </span>
           )}
@@ -275,13 +337,8 @@ export function VoiceSelector({
                     ? "Model downloads on first use — Hugging Face MMS-TTS"
                     : undefined
               }
-              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
+              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
             >
-              {selectedVoiceInfo.engine === "edge" ? (
-                <Zap className="h-3 w-3" />
-              ) : (
-                <Cloud className="h-3 w-3" />
-              )}
               {selectedVoiceInfo.engine === "edge" ? "Edge" : selectedVoiceInfo.engine.toUpperCase()}
             </span>
           )}

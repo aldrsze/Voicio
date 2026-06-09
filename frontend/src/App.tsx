@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Moon, Sun, Volume2 } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { TextInput } from "./components/TextInput";
 import { Toggle } from "./components/Toggle";
 import { VoiceSelector } from "./components/VoiceSelectors";
@@ -37,6 +37,7 @@ export default function App() {
   const historyUrlsRef = useRef<Set<string>>(new Set());
 
   const speedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const textDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { byLanguage, loading, refetch } = useVoices();
   const { status, error, audioUrl, generate, play, stop } = useTTS();
@@ -169,10 +170,11 @@ export default function App() {
     setInitialized(true);
   }
 
-  // Clean up speed debounce timer on unmount
+  // Clean up speed and text debounce timers on unmount
   useEffect(() => {
     return () => {
       if (speedDebounceRef.current) clearTimeout(speedDebounceRef.current);
+      if (textDebounceRef.current) clearTimeout(textDebounceRef.current);
     };
   }, []);
 
@@ -202,6 +204,34 @@ export default function App() {
     if (!hasText || !selectedVoice || status === "generating") return;
     generateWithVoice(selectedVoice, text, selectedLanguage, speed);
   }, [text, selectedLanguage, selectedVoice, speed, hasText, status, generateWithVoice]);
+
+  // ── Text change handler (debounced auto-regeneration) ──
+  const handleTextChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const newText = e.target.value;
+      setText(newText);
+
+      if (textDebounceRef.current) {
+        clearTimeout(textDebounceRef.current);
+      }
+
+      if (autoGenerate && newText.trim().length > 0 && selectedVoice) {
+        textDebounceRef.current = setTimeout(
+          () => generateWithVoice(selectedVoice, newText, selectedLanguage, speed),
+          5000,
+        );
+      }
+    },
+    [autoGenerate, selectedVoice, selectedLanguage, speed, generateWithVoice],
+  );
+
+  // Cancel pending text debounce when auto-generate is turned off
+  useEffect(() => {
+    if (!autoGenerate && textDebounceRef.current) {
+      clearTimeout(textDebounceRef.current);
+      textDebounceRef.current = null;
+    }
+  }, [autoGenerate]);
 
   // ── Voice change handler (immediate auto-regeneration) ──
   const handleVoiceChange = useCallback(
@@ -305,7 +335,10 @@ export default function App() {
         <div className="animate-in flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center bg-black dark:bg-white">
-              <Volume2 className="h-5 w-5 text-white dark:text-black" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="h-5 w-5 fill-current text-white dark:text-black">
+                <path d="M16 3a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" />
+                <path d="M23 13v1a7 7 0 0 1-14 0v-1H6v1a9 9 0 0 0 8 8.94V27h-3v2h10v-2h-3v-4.06A9 9 0 0 0 26 14v-1z" />
+              </svg>
             </div>
             <div>
               <h1 className="font-sans text-2xl font-bold tracking-tight">
@@ -340,7 +373,7 @@ export default function App() {
               {/* Text input */}
               <TextInput
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={handleTextChange}
                 disabled={status === "generating"}
               />
 
