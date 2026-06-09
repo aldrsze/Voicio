@@ -330,8 +330,8 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
     """Return (or create) the TTS engine for the given language or voice.
 
     Engines are cached once created. When a specific ``voice`` ID is
-    provided, it is used as the cache key and the Piper model is resolved
-    dynamically. Otherwise the language's default voice from config is used.
+    provided, it is used as the cache key. The engine type (Piper vs MMS)
+    is determined from the language's config.
 
     Args:
         language: Language code (e.g. ``"en"``, ``"tl"``).
@@ -343,7 +343,11 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
     # If a specific voice is given, cache by voice ID
     if voice:
         if voice not in _engines:
-            _engines[voice] = PiperTTS(voice=voice)
+            lang_config = settings.supported_languages.get(language)
+            if lang_config and lang_config["engine"] == "mms":
+                _engines[voice] = MMSTTS(model_id=lang_config["model_id"])
+            else:
+                _engines[voice] = PiperTTS(voice=voice)
         return _engines[voice]
 
     # Otherwise, use the language-default voice from config

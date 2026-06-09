@@ -577,6 +577,7 @@ def discover_models() -> list[DiscoveredVoice]:
 def get_voices_by_language() -> dict[str, list[dict]]:
     """Group discovered voices by language code.
 
+    Includes the Tagalog MMS voice alongside Piper models.
     Returns a dict mapping language code → list of voice info dicts
     (ready to serialize for the API).
     """
@@ -602,4 +603,33 @@ def get_voices_by_language() -> dict[str, list[dict]]:
             }
         )
 
+    # ── Tagalog (MMS) ─────────────────────────────────────────────────
+    mms_available = _check_mms_importable()
+    if "tl" not in grouped:
+        grouped["tl"] = []
+    grouped["tl"].append(
+        {
+            "id": "facebook/mms-tts-tgl",
+            "name": "Tagalog (MMS)",
+            "language": "tl",
+            "region": "PH",
+            "quality": "medium",
+            "engine": "mms",
+            "gender": "mixed",
+            "vibe": ["natural"],
+            "description": "Neural Tagalog voice via Facebook MMS-TTS",
+            "available": mms_available,
+        }
+    )
+
     return grouped
+
+
+def _check_mms_importable() -> bool:
+    """Lightweight check if MMS dependencies are available (no model loading)."""
+    try:
+        import torch  # noqa: F401
+        import transformers  # noqa: F401
+        return True
+    except ImportError:
+        return False

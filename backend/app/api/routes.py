@@ -125,26 +125,6 @@ async def list_voices() -> GroupedVoicesResponse:
     """Return all available voices grouped by language, with categories."""
     voices_by_lang = get_voices_by_language()
 
-    # Also include Tagalog (MMS) as a special entry
-    if "tl" not in voices_by_lang:
-        voices_by_lang["tl"] = []
-
-    mms_available = check_mms_deps()
-    voices_by_lang["tl"].append(
-        {
-            "id": "facebook/mms-tts-tgl",
-            "name": "Tagalog (MMS)",
-            "language": "tl",
-            "region": "PH",
-            "quality": "medium",
-            "engine": "mms",
-            "gender": "mixed",
-            "vibe": ["natural"],
-            "description": "Neural Tagalog voice via Facebook MMS-TTS",
-            "available": mms_available,
-        }
-    )
-
     # Convert to VoiceInfo models grouped by language
     result: dict[str, list[VoiceInfo]] = {}
     for lang_code, vlist in voices_by_lang.items():

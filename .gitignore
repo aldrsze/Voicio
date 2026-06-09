@@ -15,6 +15,9 @@ backend/models/hi/
 backend/models/pt/
 backend/models/zh/
 
+# Crashpad / Chromium logs (often from VS Code or Electron)
+debug.log
+
 # Python cache
 __pycache__/
 *.pyc
