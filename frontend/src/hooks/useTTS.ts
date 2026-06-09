@@ -31,20 +31,31 @@ export function useTTS() {
   }, []);
 
   const generate = useCallback(
-    async (text: string, voiceEng?: string | null, voiceTgl?: string | null, speed?: number) => {
+    async (
+      text: string,
+      language?: string,
+      voice?: string,
+      speed?: number,
+    ) => {
       cleanup();
       setState({ status: "generating", error: null, audioUrl: null });
 
       try {
+        const body: Record<string, unknown> = {
+          text,
+          language: language ?? "en",
+          speed: speed ?? 0.85,
+        };
+
+        // If a specific voice is chosen, send it
+        if (voice) {
+          body.voice = voice;
+        }
+
         const res = await fetch(`${API_BASE}/tts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            voice_eng: voiceEng ?? null,
-            voice_tgl: voiceTgl ?? null,
-            speed: speed ?? 1.0,
-          }),
+          body: JSON.stringify(body),
         });
 
         if (!res.ok) {

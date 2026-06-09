@@ -1,27 +1,53 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { TextInput } from "./components/TextInput";
-import { VoiceSelectors } from "./components/VoiceSelectors";
+import { VoiceSelector } from "./components/VoiceSelectors";
 import { SpeedSlider } from "./components/SpeedSlider";
 import { PlayButton } from "./components/PlayButton";
 import { StatusBar } from "./components/StatusBar";
 import { useTTS } from "./hooks/useTTS";
 import { useVoices } from "./hooks/useVoices";
 
+/** Determine the voice ID for a language's first available voice */
+function defaultVoiceForLang(
+  byLanguage: Record<string, { id: string }[]>,
+  lang: string,
+): string | null {
+  return byLanguage[lang]?.[0]?.id ?? null;
+}
+
 export default function App() {
   const [text, setText] = useState("");
-  const [speed, setSpeed] = useState(1.0);
-  const [voiceEng, setVoiceEng] = useState<string | null>(null);
-  const [voiceTgl, setVoiceTgl] = useState<string | null>(null);
+  const [speed, setSpeed] = useState(0.85);
+  const [selectedVoice, setSelectedVoice] = useState<string>("");
 
-  const { englishVoices, tagalogVoices } = useVoices();
+  const { all, byLanguage, loading } = useVoices();
   const { status, error, audioUrl, generate, play, stop } = useTTS();
+
+  // Infer language from the selected voice
+  const selectedLanguage = useMemo(() => {
+    if (!selectedVoice) return "en";
+    for (const [lang, voices] of Object.entries(byLanguage)) {
+      if (voices.some((v) => v.id === selectedVoice)) return lang;
+    }
+    return "en";
+  }, [selectedVoice, byLanguage]);
+
+  // Set default voice when voices load
+  const [initialized, setInitialized] = useState(false);
+  if (!initialized && !loading && all.length > 0 && !selectedVoice) {
+    const def = defaultVoiceForLang(byLanguage, "en") || all[0]?.id;
+    if (def) {
+      setSelectedVoice(def);
+    }
+    setInitialized(true);
+  }
 
   const hasText = text.trim().length > 0;
 
   const handleGenerate = useCallback(() => {
-    if (!hasText) return;
-    generate(text, voiceEng, voiceTgl, speed);
-  }, [text, voiceEng, voiceTgl, speed, hasText, generate]);
+    if (!hasText || !selectedVoice) return;
+    generate(text, selectedLanguage, selectedVoice, speed);
+  }, [text, selectedLanguage, selectedVoice, speed, hasText, generate]);
 
   const handleDownload = useCallback(() => {
     if (!audioUrl) return;
@@ -52,7 +78,7 @@ export default function App() {
             Voicio
           </h1>
           <p className="font-body text-xs text-mocha">
-            Bilingual Text-to-Speech — English &amp; Tagalog
+            Multi-language Text-to-Speech
           </p>
         </div>
       </header>
@@ -69,17 +95,15 @@ export default function App() {
               disabled={status === "generating"}
             />
 
-            {/* Voice selectors + speed */}
-            <VoiceSelectors
-              englishVoices={englishVoices}
-              tagalogVoices={tagalogVoices}
-              selectedEnglish={voiceEng}
-              selectedTagalog={voiceTgl}
-              onEnglishChange={setVoiceEng}
-              onTagalogChange={setVoiceTgl}
-              disabled={status === "generating"}
+            {/* Voice selector with categories */}
+            <VoiceSelector
+              voicesByLanguage={byLanguage}
+              selectedVoice={selectedVoice}
+              onChange={setSelectedVoice}
+              disabled={status === "generating" || loading}
             />
 
+            {/* Speed slider */}
             <SpeedSlider
               value={speed}
               onChange={setSpeed}
@@ -110,7 +134,7 @@ export default function App() {
         {/* ── Footer ────────────────────────────────────────── */}
 
         <p className="mt-8 text-center font-body text-[11px] text-mocha/45">
-          Automatically detects English and Tagalog in your text.
+          Select a voice and type text to generate speech.
         </p>
       </main>
     </div>

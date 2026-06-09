@@ -3,18 +3,24 @@
 export interface VoiceInfo {
   id: string;
   name: string;
-  language: "en" | "tl";
+  language: string;
+  region?: string;
   quality?: string;
+  engine?: string;
+  gender?: string;
+  vibe?: string[];
+  description?: string;
+  available?: boolean;
 }
 
 export interface VoicesResponse {
-  voices: VoiceInfo[];
+  languages: Record<string, VoiceInfo[]>;
 }
 
 export interface TTSRequest {
   text: string;
-  voice_eng?: string | null;
-  voice_tgl?: string | null;
+  language?: string;
+  voice?: string;
   speed?: number;
 }
 
