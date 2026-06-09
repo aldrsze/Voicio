@@ -1,9 +1,4 @@
-"""Application configuration.
-
-Settings are loaded from environment variables with sensible defaults
-for local development. Production overrides should be set via docker-compose
-or the container runtime.
-"""
+"""App config — env vars with local-dev defaults, overridable via docker-compose."""
 
 from __future__ import annotations
 
@@ -12,15 +7,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-# ── Supported languages (up to 10 models) ──────────────────────────────
-#
-# Each entry maps a language code to its TTS engine configuration.
-# Piper models: download .onnx + .onnx.json from https://huggingface.co/rhasspy/piper-voices
-#   and place them in the models directory.
-# MMS models: download automatically from Hugging Face Hub on first use.
-#
-# To add a language, add a new entry here and ensure the model files exist.
-# To remove a language, comment out or delete its entry.
+# Supported languages — each maps a lang code to engine + default voice.
+# Piper: download .onnx+.json from https://huggingface.co/rhasspy/piper-voices
+# MMS: auto-downloads from Hugging Face Hub on first use.
 
 SUPPORTED_LANGUAGES: dict[str, dict[str, str]] = {
     "en": {
@@ -98,34 +87,28 @@ SUPPORTED_LANGUAGES: dict[str, dict[str, str]] = {
 
 @dataclass(frozen=True)
 class Settings:
-    # ── Paths ──────────────────────────────────────────────────────────
-    # Root of the backend directory (two levels up from this file: app/ → backend/)
-    base_dir: Path = Path(__file__).resolve().parent.parent
+    # ── Paths ──
+    base_dir: Path = Path(__file__).resolve().parent.parent  # backend/
     models_dir: Path = field(default_factory=lambda: _resolve_models_dir())
 
-    # ── Server ─────────────────────────────────────────────────────────
+    # ── Server ──
     host: str = os.getenv("TT_HOST", "0.0.0.0")
     port: int = int(os.getenv("TT_PORT", "8000"))
     debug: bool = os.getenv("TT_DEBUG", "true").lower() in ("1", "true", "yes")
 
-    # ── CORS ───────────────────────────────────────────────────────────
-    # Comma-separated list of origins allowed for requests
+    # ── CORS ──
     cors_origins: list[str] = field(default_factory=lambda: _parse_cors())
 
-    # ── TTS ────────────────────────────────────────────────────────────
-    # Piper binary path (auto-resolved on PATH if not set)
+    # ── TTS ──
     piper_binary: str = os.getenv("TT_PIPER_BINARY", "piper")
-
-    # Default language for requests that don't specify one
     default_language: str = os.getenv("TT_DEFAULT_LANG", "en")
 
-    # ── Limits (per PRD) ──────────────────────────────────────────────
+    # ── Limits ──
     max_text_length: int = 5000
     max_speed: float = 2.0
     min_speed: float = 0.5
 
-    # ── Languages ──────────────────────────────────────────────────────
-    # Map of language code → engine configuration
+    # ── Languages ──
     supported_languages: dict = field(default_factory=lambda: dict(SUPPORTED_LANGUAGES))
 
 

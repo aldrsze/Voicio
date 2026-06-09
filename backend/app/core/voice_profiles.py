@@ -1,46 +1,30 @@
-"""Voice profile metadata, model discovery, and categorization.
-
-Each Piper TTS voice model in the ``models/`` directory is discovered
-automatically and enriched with metadata: gender, vibe (descriptive tags),
-and a human-readable description.
-
-New models added to ``models/`` are discovered on server restart — no
-configuration changes needed.
-
-Microsoft Edge TTS voices are discovered at startup via the ``edge-tts``
-library (no model files needed — they stream from Microsoft's cloud API).
-"""
+"""Voice profile metadata, model discovery, and categorization for Piper/MMS/Edge."""
 
 from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Module-level cache for Edge TTS voices ──────────────────────────────
-# Populated asynchronously at startup so the first API call is fast.
+# ── Edge cache (populated async at startup) ──
 _edge_voice_cache: list[dict] | None = None
 
-# ── Voice metadata ──────────────────────────────────────────────────────────
-# gender: "female" | "male" | "non-binary" | "mixed"
-# vibe: short descriptive tags shown to the user
-# description: one-line human-readable summary
+# ── Voice metadata ──
 
 VoiceProfile = dict[str, str | list[str]]
 
-# Known female voice names (used for gender inference of unknown models)
+# Known names for gender inference of unknown models
 _FEMALE_NAMES: set[str] = {
     "amy", "kristin", "kathleen", "lessac", "ljspeech",
     "alba", "cori", "jenny_dioco", "southern_english_female", "hfc_female",
     "priyamvada", "daniela", "xiao_ya", "huayan",
 }
 
-# Known male voice names (used for gender inference of unknown models)
 _MALE_NAMES: set[str] = {
     "bryce", "danny", "joe", "john", "norman", "ryan",
     "kusal", "hfc_male", "alan", "northern_english_male",
@@ -53,12 +37,10 @@ _MALE_NAMES: set[str] = {
 # Known non-binary
 _NON_BINARY_NAMES: set[str] = {"sam"}
 
-# ── Curated voice profiles ──────────────────────────────────────────────────
-# These override auto-inference with hand-curated descriptions and vibe tags.
-# Keyed by voice_id (filename stem, e.g. "en_US-lessac-high").
+# ── Curated voice profiles (override auto-inference) ──
 
 VOICE_METADATA: dict[str, VoiceProfile] = {
-    # ── English US ───────────────────────────────────────────────────────
+    # ── English US ──
     "en_US-lessac-high": {
         "gender": "female",
         "vibe": ["warm", "feminine", "clear"],
@@ -195,7 +177,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
         "description": "Natural multi-speaker (904 voices) re-encoded LibriTTS corpus",
     },
 
-    # ── English British ──────────────────────────────────────────────────
+    # ── English British ──
     "en_GB-alan-medium": {
         "gender": "male",
         "vibe": ["calm", "british", "masculine"],
@@ -252,7 +234,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
         "description": "Multi-speaker (109 voices) from the VCTK Edinburgh corpus — wide variety of accents",
     },
 
-    # ── Spanish ──────────────────────────────────────────────────────────
+    # ── Spanish ──
     "es_AR-daniela-high": {
         "gender": "female",
         "vibe": ["warm", "feminine", "argentinian"],
@@ -294,7 +276,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
         "description": "Smooth Mexican Spanish male voice — high quality",
     },
 
-    # ── Hindi ────────────────────────────────────────────────────────────
+    # ── Hindi ──
     "hi_IN-pratham-medium": {
         "gender": "male",
         "vibe": ["warm", "masculine", "hindi"],
@@ -311,7 +293,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
         "description": "Deep Hindi male voice from IIT Madras IndicTTS",
     },
 
-    # ── Portuguese ────────────────────────────────────────────────────────
+    # ── Portuguese ──
     "pt_BR-cadu-medium": {
         "gender": "male",
         "vibe": ["warm", "masculine", "brazilian"],
@@ -338,7 +320,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
         "description": "Warm European Portuguese male voice",
     },
 
-    # ── Chinese ───────────────────────────────────────────────────────────
+    # ── Chinese ──
     "zh_CN-chaowen-medium": {
         "gender": "male",
         "vibe": ["calm", "masculine", "mandarin"],
@@ -361,7 +343,7 @@ VOICE_METADATA: dict[str, VoiceProfile] = {
     },
 }
 
-# ── Archive models (legacy, kept for reference) ────────────────────────────
+# ── Archive models (legacy reference) ──
 
 ARCHIVE_METADATA: dict[str, VoiceProfile] = {
     "en_US-lessac-high": VOICE_METADATA["en_US-lessac-high"],
@@ -371,20 +353,15 @@ ARCHIVE_METADATA: dict[str, VoiceProfile] = {
 
 
 def _infer_gender(voice_name: str) -> str:
-    """Infer speaker gender from the voice name component.
-
-    Falls back to known name lists, then to ``"mixed"``.
-    """
-    # The "name" part is the second-to-last segment between region and quality.
-    # e.g. "en_US-lessac-high" → name = "lessac"
-    #      "en_GB-northern_english_male-medium" → name = "northern_english_male"
+    """Infer gender from voice name; fall back to ``"mixed"``."""
+    # Name is the segment between region and quality: "en_US-lessac-high" → "lessac"
     parts = voice_name.split("-")
     if parts and parts[0] in _MALE_NAMES:
         return "male"
     if parts and parts[0] in _FEMALE_NAMES:
         return "female"
 
-    # Try matching the full name before the last dash
+    # Broader substring match
     for name in _FEMALE_NAMES:
         if name.replace("_", "-") in voice_name or name in voice_name:
             return "female"
@@ -399,7 +376,7 @@ def _infer_gender(voice_name: str) -> str:
 
 
 def _infer_vibe(gender: str, quality: str, voice_name: str) -> list[str]:
-    """Generate reasonable default vibe tags when no curated metadata exists."""
+    """Generate default vibe tags for voices w/o curated metadata."""
     tags: list[str] = []
 
     if gender == "female":
@@ -422,38 +399,26 @@ def _infer_vibe(gender: str, quality: str, voice_name: str) -> list[str]:
 
 
 def _parse_quality(voice_id: str) -> str:
-    """Extract quality tier from a voice ID.
-
-    e.g. ``"en_US-lessac-high"`` → ``"high"``
-    """
+    """Extract quality tier: ``"en_US-lessac-high"`` → ``"high"``."""
     parts = voice_id.rsplit("-", 1)
     return parts[-1] if len(parts) > 1 else "medium"
 
 
 def _parse_language_code(voice_id: str) -> str:
-    """Extract the language code (ISO 639-1) from a voice ID.
-
-    e.g. ``"en_US-lessac-high"`` → ``"en"``
-    """
+    """Extract ISO 639-1 code: ``"en_US-lessac-high"`` → ``"en"``."""
     return voice_id.split("_")[0]
 
 
 def _parse_voice_name(voice_id: str) -> str:
-    """Extract the human-readable voice name from a voice ID.
-
-    e.g. ``"en_US-lessac-high"`` → ``"Lessac"``
-         ``"en_GB-northern_english_male-medium"`` → ``"Northern English Male"``
-         ``"facebook/mms-tts-tgl"`` → ``"Tagalog (MMS)"``
-    """
+    """Extract readable name from voice ID (e.g. ``"en_US-lessac-high"`` → ``"Lessac"``)."""
     parts = voice_id.rsplit("-", 1)  # strip quality suffix
     if "/" in parts[0]:
         return parts[0].split("/")[-1]
-    # voice_id format: lang_REGION-name-quality
-    # parts[0] = "en_US-lessac", last = "high"
+    # Format: lang_REGION-name-quality → parts[0]="en_US-lessac"
     segments = parts[0].split("-", 1)
     if len(segments) < 2:
         return parts[0]
-    name_raw = segments[1]  # e.g. "lessac" or "northern_english_male"
+    name_raw = segments[1]
     return (
         name_raw.replace("_", " ")
         .replace("/", " ")
@@ -463,28 +428,18 @@ def _parse_voice_name(voice_id: str) -> str:
 
 
 def _parse_region(voice_id: str) -> str:
-    """Extract the region from a voice ID.
-
-    e.g. ``"en_US-lessac-high"`` → ``"US"``
-    """
+    """Extract region: ``"en_US-lessac-high"`` → ``"US"``."""
     parts = voice_id.split("_", 1)
     return parts[1].split("-")[0] if len(parts) > 1 else ""
 
 
 def get_voice_profile(voice_id: str) -> VoiceProfile:
-    """Return the profile for a voice, inferring where no metadata exists.
-
-    Args:
-        voice_id: The voice identifier (filename stem, e.g. ``"en_US-lessac-high"``).
-
-    Returns:
-        A dict with ``gender``, ``vibe`` (list of str), and ``description``.
-    """
+    """Return profile for a voice, inferring where no metadata exists."""
     if voice_id in VOICE_METADATA:
         return VOICE_METADATA[voice_id]
 
-    # Infer from the voice name
-    name_part = voice_id.rsplit("-", 1)[0]  # strip quality suffix
+    # Infer from voice name (strip quality suffix)
+    name_part = voice_id.rsplit("-", 1)[0]
     quality = _parse_quality(voice_id)
     gender = _infer_gender(name_part)
     vibe = _infer_vibe(gender, quality, voice_id)
@@ -498,7 +453,7 @@ def get_voice_profile(voice_id: str) -> VoiceProfile:
 
 
 def get_language_label(lang_code: str) -> str:
-    """Return a friendly label for a language code."""
+    """Friendly label for a language code."""
     labels = {
         "en": "English",
         "es": "Spanish",
@@ -516,7 +471,7 @@ def get_language_label(lang_code: str) -> str:
     return labels.get(lang_code, lang_code.upper())
 
 
-# ── Model discovery ─────────────────────────────────────────────────────────
+# ── Model discovery ──
 
 
 @dataclass
@@ -535,22 +490,12 @@ class DiscoveredVoice:
 
 
 def discover_models() -> list[DiscoveredVoice]:
-    """Piper model discovery is disabled — all Piper voices come from
-    browser IndexedDB storage via ``POST /api/tts-with-model``.
-
-    Returns an empty list. Users download/import models through the
-    Model Manager in the frontend, which stores them in IndexedDB.
-    """
+    """Piper model discovery disabled — models come from browser IndexedDB."""
     return []
 
 
 def get_voices_by_language() -> dict[str, list[dict]]:
-    """Group discovered voices by language code.
-
-    Includes the Tagalog MMS voice alongside Piper models.
-    Returns a dict mapping language code → list of voice info dicts
-    (ready to serialize for the API).
-    """
+    """Group voices by lang code, including MMS and Edge voices."""
     voices = discover_models()
     grouped: dict[str, list[dict]] = {}
 
@@ -573,7 +518,7 @@ def get_voices_by_language() -> dict[str, list[dict]]:
             }
         )
 
-    # ── Tagalog (MMS) ─────────────────────────────────────────────────
+    # ── Tagalog (MMS) ──
     mms_available = _check_mms_importable()
     if "tl" not in grouped:
         grouped["tl"] = []
@@ -592,7 +537,7 @@ def get_voices_by_language() -> dict[str, list[dict]]:
         }
     )
 
-    # ── Edge TTS (dynamically discovered, no model downloads) ─────────
+    # ── Edge TTS ──
     for ev in _fetch_edge_voices():
         lang = ev["language"]
         if lang not in grouped:
@@ -603,7 +548,7 @@ def get_voices_by_language() -> dict[str, list[dict]]:
 
 
 def _check_mms_importable() -> bool:
-    """Lightweight check if MMS dependencies are available (no model loading)."""
+    """Check if torch + transformers are importable (no model loading)."""
     try:
         import torch  # noqa: F401
         import transformers  # noqa: F401
@@ -613,7 +558,7 @@ def _check_mms_importable() -> bool:
 
 
 def _check_edge_importable() -> bool:
-    """Lightweight check if edge-tts is available."""
+    """Check if edge-tts is importable."""
     try:
         import edge_tts  # noqa: F401
         return True
@@ -621,30 +566,20 @@ def _check_edge_importable() -> bool:
         return False
 
 
-# ── Locale-to-language mapping ─────────────────────────────────────────
-# Microsoft Edge locales sometimes use 3-letter codes that differ from
-# our internal language codes.
+# ── Locale mapping (Edge uses 3-letter codes) ──
 _LOCALE_TO_LANG: dict[str, str] = {
     "fil": "tl",  # Filipino → Tagalog
 }
 
 
 def _locale_to_lang(locale: str) -> str:
-    """Map a Microsoft locale code to our internal language code.
-
-    e.g. ``"fil-PH"`` → ``"tl"``,  ``"en-US"`` → ``"en"``
-    """
+    """Map Microsoft locale to internal code: ``"fil-PH"`` → ``"tl"``."""
     lang_part = locale.split("-")[0].lower()
     return _LOCALE_TO_LANG.get(lang_part, lang_part)
 
 
 def _parse_edge_voice_name(short_name: str) -> str:
-    """Extract a clean display name from an edge-tts ShortName.
-
-    e.g. ``"fil-PH-AngeloNeural"``         → ``"Angelo"``
-         ``"en-US-JennyNeural"``           → ``"Jenny"``
-         ``"en-AU-WilliamMultilingualNeural"`` → ``"William"``
-    """
+    """Extract clean name from edge-tts ShortName: ``"fil-PH-AngeloNeural"`` → ``"Angelo"``."""
     # ShortName format: {locale}-{Name}[Multilingual]Neural
     name_part = short_name.rsplit("-", 1)[-1]
     # Strip suffix in order of specificity
@@ -656,20 +591,14 @@ def _parse_edge_voice_name(short_name: str) -> str:
 
 
 def _fetch_edge_voices() -> list[dict]:
-    """Return all available Edge TTS voices from the module-level cache.
-
-    The cache is populated at startup by :func:`prewarm_edge_voices`.
-    If the cache is empty (e.g. startup hasn't completed or edge-tts
-    is unavailable), returns an empty list.
-    """
+    """Return Edge voices from cache (populated at startup by ``prewarm_edge_voices``)."""
     global _edge_voice_cache
     if _edge_voice_cache is not None:
         return _edge_voice_cache
 
-    # Cache not yet populated — try a synchronous fallback if importable.
+    # Cache not populated — sync fallback (e.g. in tests). Uses separate
+    # thread to avoid nested-loop errors.
     if _check_edge_importable():
-        # This will work if prewarm hasn't run yet (e.g. in tests).
-        # Use asyncio.run in a separate thread to avoid nested-loop errors.
         try:
             import edge_tts
 
@@ -684,11 +613,11 @@ def _fetch_edge_voices() -> list[dict]:
 
 
 def _run_async(coro_factory, *args):
-    """Run an async coroutine from a sync context, handling loop nesting."""
+    """Run an async coroutine from sync context, handling loop nesting."""
     try:
         return asyncio.run(coro_factory(*args))
     except RuntimeError:
-        # Already in an event loop — run in a new thread.
+        # Already in an event loop → run in a new thread
         import concurrent.futures
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
@@ -697,12 +626,7 @@ def _run_async(coro_factory, *args):
 
 
 async def prewarm_edge_voices() -> None:
-    """Pre-fetch the list of available Edge TTS voices at startup.
-
-    Called from the app startup event so the cache is ready before
-    the first API request.  Failures are logged but do not crash
-    the server — the voice list will be empty until a later refresh.
-    """
+    """Pre-fetch Edge voice list at startup so first API call is fast."""
     global _edge_voice_cache
     try:
         import edge_tts
@@ -723,7 +647,7 @@ async def prewarm_edge_voices() -> None:
 
 
 def _build_edge_voice_list(raw_voices: list[dict]) -> list[dict]:
-    """Convert the raw edge-tts API response into our voice-info format."""
+    """Convert edge-tts API response to our voice-info format."""
     result: list[dict] = []
     for v in raw_voices:
         voice_id = v.get("ShortName") or v.get("Name", "")
@@ -739,7 +663,7 @@ def _build_edge_voice_list(raw_voices: list[dict]) -> list[dict]:
 
         gender = "female" if "female" in gender_raw else "male" if "male" in gender_raw else "mixed"
 
-        # Use Microsoft's personality tags as vibe; fall back to "natural"
+        # Personality tags as vibe; fall back to "natural"
         vibe = list(personalities) if personalities else ["natural"]
 
         display_name = _parse_edge_voice_name(voice_id)
@@ -763,11 +687,7 @@ def _build_edge_voice_list(raw_voices: list[dict]) -> list[dict]:
 
 
 def resolve_voice_engine(voice_id: str) -> str | None:
-    """Return the engine type (``\"piper\"``, ``\"mms\"``, ``\"edge\"``) for a voice ID.
-
-    Looks up the voice across all language groups. Returns ``None`` if the
-    voice ID is not found.
-    """
+    """Return engine type (``"piper"``/``"mms"``/``"edge"``) for a voice ID, or None."""
     voices = get_voices_by_language()
     for lang_voices in voices.values():
         for v in lang_voices:
@@ -776,9 +696,9 @@ def resolve_voice_engine(voice_id: str) -> str | None:
     return None
 
 
-# ══════════════════════════════════════════════════════════════════════════
-#  Model Catalog & Lifecycle (download, import, delete)
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
+#  Model Catalog & Lifecycle
+# ═══════════════════════════════════════
 
 # Rough size estimates by quality tier (MB for .onnx + .json combined)
 _QUALITY_SIZE_MB: dict[str, float] = {
@@ -788,9 +708,9 @@ _QUALITY_SIZE_MB: dict[str, float] = {
     "high": 200,
 }
 
-# Voices excluded from the public catalog (archive, test-only, or non-standard)
+# Voices excluded from public catalog (archive / test-only / non-standard)
 _CATALOG_EXCLUDE: set[str] = {
-    # Archive voices (unmaintained / experimental)
+    # Archived (unmaintained / experimental)
     "en_US-l2arctic-medium",
     "en_US-reza_ibrahim-medium",
     "en_US-kristin-medium",
@@ -818,12 +738,7 @@ _CATALOG_EXCLUDE: set[str] = {
 
 
 def _hf_lang_dir(voice_id: str) -> str:
-    """Determine the Hugging Face repo subdirectory for a voice.
-
-    Piper voices on HF are organised as ``{lang_dir}/{lang_REGION}/{name}/{quality}/``.
-    ``en_US-*`` → ``en``,  ``en_GB-*`` → ``en_GB``, all others use the
-    two-letter ISO code (``es``, ``de``, ``fr``, …).
-    """
+    """HF subdirectory: ``en_US-*`` → ``en``,  ``en_GB-*`` → ``en_GB``, others use ISO code."""
     prefix = voice_id.split("-")[0]  # e.g. "en_US", "en_GB", "es_ES"
     if prefix == "en_GB":
         return "en_GB"
@@ -831,24 +746,15 @@ def _hf_lang_dir(voice_id: str) -> str:
 
 
 def _hf_voice_name(voice_id: str) -> str:
-    """Extract the voice name portion used as the HF subdirectory.
-
-    ``en_US-amy-medium`` → ``"amy"``
-    ``en_GB-northern_english_male-medium`` → ``"northern_english_male"``
-    """
-    # Strip the quality suffix (last ``-`` segment)
+    """Voice name portion used as HF subdirectory: ``en_US-amy-medium`` → ``"amy"``."""
+    # Strip quality suffix, then language-region prefix
     without_quality = voice_id.rsplit("-", 1)[0]
-    # Strip the language-region prefix (first ``-`` segment)
     segments = without_quality.split("-", 1)
     return segments[1] if len(segments) > 1 else segments[0]
 
 
 def _hf_download_url(voice_id: str, filename: str) -> str:
-    """Full Hugging Face raw URL for a Piper model file.
-
-    HF organises models as ``{lang}/{lang_REGION}/{name}/{quality}/{file}``:
-      ``en/en_US/lessac/high/en_US-lessac-high.onnx``
-    """
+    """Full HF raw URL: ``{lang}/{lang_REGION}/{name}/{quality}/{file}``."""
     lang_dir = _hf_lang_dir(voice_id)
     lang_region = voice_id.split("-")[0]
     name = _hf_voice_name(voice_id)
@@ -860,7 +766,7 @@ def _hf_download_url(voice_id: str, filename: str) -> str:
 
 
 def _installed_voice_ids() -> set[str]:
-    """Return the set of voice IDs whose .onnx files exist on disk."""
+    """Return set of voice IDs with ``.onnx`` files on disk."""
     model_dir = settings.models_dir
     if not model_dir.is_dir():
         return set()
@@ -868,14 +774,7 @@ def _installed_voice_ids() -> set[str]:
 
 
 def get_model_catalog() -> list[dict]:
-    """Return the full catalog of downloadable Piper voices.
-
-    Each entry mirrors the ``VoiceInfo`` shape with an extra ``size_mb``
-    estimate. The ``installed`` field is always ``False`` from the server —
-    the frontend determines installed status from IndexedDB, and marks a
-    voice as installed only when the user has downloaded or imported it
-    into the browser store.
-    """
+    """Full catalog of downloadable Piper voices (``installed`` always False — frontend tracks IndexedDB)."""
     catalog: list[dict] = []
 
     for voice_id, profile in VOICE_METADATA.items():
@@ -900,11 +799,7 @@ def get_model_catalog() -> list[dict]:
 
 
 def download_piper_model(voice_id: str) -> None:
-    """Download a Piper voice model (``.onnx`` + ``.onnx.json``) from Hugging Face.
-
-    Raises ``ValueError`` if the voice is unknown, or ``RuntimeError`` if
-    the download fails.
-    """
+    """Download ``.onnx`` + ``.onnx.json`` from Hugging Face."""
     import urllib.error
     import urllib.request
 
@@ -924,7 +819,7 @@ def download_piper_model(voice_id: str) -> None:
         try:
             urllib.request.urlretrieve(url, dest)
         except urllib.error.HTTPError as exc:
-            # Clean up partial downloads
+            # Clean up partial download
             if dest.exists():
                 dest.unlink()
             if exc.code == 404:
@@ -938,7 +833,7 @@ def download_piper_model(voice_id: str) -> None:
                 f"{voice_id!r}: {exc}"
             ) from exc
         except Exception as exc:
-            # Clean up partial downloads
+            # Clean up partial download
             if dest.exists():
                 dest.unlink()
             raise RuntimeError(
@@ -949,10 +844,7 @@ def download_piper_model(voice_id: str) -> None:
 
 
 def remove_piper_model(voice_id: str) -> None:
-    """Delete a Piper voice model (``.onnx`` + ``.onnx.json``) from disk.
-
-    Raises ``ValueError`` if neither file exists.
-    """
+    """Delete ``.onnx`` + ``.onnx.json`` from disk."""
     model_dir = settings.models_dir
     removed = False
 
@@ -970,15 +862,7 @@ def remove_piper_model(voice_id: str) -> None:
 
 
 def import_piper_model(voice_id: str, onnx_bytes: bytes, json_bytes: bytes) -> None:
-    """Import model files from raw bytes, writing them to the models directory.
-
-    Args:
-        voice_id: Voice identifier (e.g. ``"en_US-lessac-medium"``).
-        onnx_bytes: Contents of the ``.onnx`` model file.
-        json_bytes: Contents of the ``.onnx.json`` config file.
-
-    Raises ``ValueError`` if the model already exists on disk.
-    """
+    """Write model files from raw bytes to the models directory."""
     model_dir = settings.models_dir
     model_dir.mkdir(parents=True, exist_ok=True)
 

@@ -1,4 +1,4 @@
-"""Pydantic models for the TTS API request/response contracts."""
+"""Pydantic models for TTS API request/response contracts."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ class HealthResponse(BaseModel):
     languages: list[str] = Field(description="List of configured language codes")
 
 
-# ── Model Management ───────────────────────────────────────────────────
+# ── Model management ──
 
 
 class CatalogVoice(BaseModel):

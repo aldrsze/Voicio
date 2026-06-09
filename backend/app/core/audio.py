@@ -1,21 +1,13 @@
-"""Audio processing pipeline.
-
-Single-language TTS synthesis with WAV output.
-Takes text and a language code, routes to the correct engine.
-Optionally accepts a specific voice ID for Piper models.
-"""
+"""Audio pipeline — single-language TTS synthesis to WAV."""
 
 from __future__ import annotations
 
 import io
-import logging
 
 from app.core.tts import synthesise_async
 
-logger = logging.getLogger(__name__)
 
-
-# ── Public API ────────────────────────────────────────────────────────────
+# ── Public API ──
 
 
 async def synthesise_text(
@@ -25,25 +17,7 @@ async def synthesise_text(
     voice: str | None = None,
     speed: float = 1.0,
 ) -> bytes:
-    """Synthesise *text* and return WAV bytes.
-
-    Parameters
-    ----------
-    text:
-        User-supplied input text (max 5000 chars).  Must not be empty.
-    language:
-        Language code (e.g. ``"en"``, ``"es"``, ``"tl"``).
-        Must be one of the configured languages in ``settings.supported_languages``.
-    voice:
-        Optional specific Piper voice ID (e.g. ``"en_US-amy-medium"``).
-        When provided, overrides the default voice for the language.
-    speed:
-        Playback speed multiplier (0.5 – 2.0).
-
-    Returns
-    -------
-    Complete WAV file as ``bytes`` (16-bit mono PCM).
-    """
+    """Synthesise text → WAV bytes (16-bit mono PCM)."""
     if not text or not text.strip():
         raise ValueError("No text to synthesise.")
 
@@ -51,7 +25,7 @@ async def synthesise_text(
     return _build_wav([result.audio_bytes], result.sample_rate)
 
 
-# ── Internal helpers ──────────────────────────────────────────────────────
+# ── Helpers ──
 
 
 def _build_wav(chunks: list[bytes], sample_rate: int) -> bytes:

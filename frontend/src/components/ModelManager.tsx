@@ -121,7 +121,7 @@ export function ModelManager({ onModelChanged }: Props) {
     }
   }, [onnxFile, jsonFile, importModel, showToast, onModelChanged]);
 
-  const canImport = onnxFile && jsonFile && !importing;
+  const canImport = !!(onnxFile && jsonFile && !importing);
 
   return (
     <div className="mt-4 border border-black/10 bg-white dark:border-white/10 dark:bg-bento-bg-dark">

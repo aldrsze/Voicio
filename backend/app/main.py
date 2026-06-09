@@ -1,9 +1,4 @@
-"""FastAPI application entry point.
-
-Usage
------
-    uvicorn app.main:app --reload
-"""
+"""FastAPI entry: uvicorn app.main:app --reload"""
 
 from __future__ import annotations
 
@@ -16,7 +11,7 @@ from app.api.routes import router
 from app.config import settings
 from app.core.voice_profiles import prewarm_edge_voices
 
-# ── Logging ───────────────────────────────────────────────────────────────
+# ── Logging ──
 
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -26,7 +21,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# ── App ───────────────────────────────────────────────────────────────────
+# ── App ──
 
 app = FastAPI(
     title="Voicio TTS",
@@ -36,7 +31,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# ── CORS ──────────────────────────────────────────────────────────────────
+# ── CORS ──
 
 app.add_middleware(
     CORSMiddleware,
@@ -46,17 +41,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── Routes ────────────────────────────────────────────────────────────────
+# ── Routes ──
 
 app.include_router(router, prefix="/api")
 
 
-# ── Startup event ─────────────────────────────────────────────────────────
-
+# ── Startup ──
 
 @app.on_event("startup")
 async def startup() -> None:
-    """Log configuration on startup so operators can verify settings."""
+    """Log config on startup for operator verification."""
     logger.info(
         "Voicio TTS starting — host=%s port=%s debug=%s",
         settings.host, settings.port, settings.debug,
@@ -69,5 +63,5 @@ async def startup() -> None:
     )
     logger.info("Configured languages: %s", langs)
 
-    # Pre-warm the edge-tts voice cache so the first /api/voices call is fast.
+    # Pre-warm edge-tts cache so first /api/voices call is fast.
     await prewarm_edge_voices()

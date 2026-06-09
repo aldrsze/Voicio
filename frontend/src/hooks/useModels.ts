@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { listInstalledIds, loadModel, removeModel, saveModel, type StoredModel } from "../lib/modelStorage";
 
 const API_BASE = "/api";
@@ -46,13 +46,14 @@ export function hfDownloadUrl(voiceId: string, filename: string): string {
 
 /** Parse a voice display name from its ID (front-end version). */
 export function parseVoiceName(voiceId: string): string {
-  const withoutQuality = voiceId.rsplit("-", 1)[0];
+  const lastDash = voiceId.lastIndexOf("-");
+  const withoutQuality = lastDash !== -1 ? voiceId.slice(0, lastDash) : voiceId;
   const nameRaw = withoutQuality.includes("-")
     ? withoutQuality.slice(withoutQuality.indexOf("-") + 1)
     : withoutQuality;
   return nameRaw
     .replace(/_/g, " ")
-    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\b\w/g, (c: string) => c.toUpperCase())
     .trim();
 }
 
@@ -74,7 +75,7 @@ function modelFiles(voiceId: string): [string, string] {
 /** Fetch model bytes from Hugging Face for a catalog voice. */
 export async function downloadFromHf(
   voiceId: string,
-  onProgress?: (loaded: number, total: number) => void,
+  _onProgress?: (loaded: number, total: number) => void,
 ): Promise<{ onnx: ArrayBuffer; config: ArrayBuffer }> {
   const [onnxFilename, configFilename] = modelFiles(voiceId);
 

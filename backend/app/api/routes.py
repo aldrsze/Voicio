@@ -1,15 +1,10 @@
-"""API route handlers for the multi-language TTS service.
-
-Each request targets a single language — the user selects which language
-to speak, and the backend routes to the correct TTS engine (Piper or MMS).
-Specific voice models can be selected by ID for finer control.
-"""
+"""API route handlers — routes text to the correct TTS engine per language/voice."""
 
 from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 
 from app.api.schemas import (
@@ -34,7 +29,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ── POST /api/tts ─────────────────────────────────────────────────────────
+# ── POST /api/tts ──
 
 
 @router.post(
@@ -50,28 +45,17 @@ router = APIRouter()
     },
 )
 async def tts(request: TTSRequest) -> Response:
-    """Generate speech from text in the requested language or voice.
-
-    Returns a WAV file with ``Content-Type: audio/wav``. The language field
-    determines which TTS engine is used:
-
-    - **Piper** languages (en, es, fr, de, it, pt, nl, pl, ru) → local .onnx models
-    - **MMS** languages (tl) → Hugging Face ``facebook/mms-tts-tgl``
-
-    If a ``voice`` ID is provided (e.g. ``en_US-amy-medium``), it selects a
-    specific Piper model and the language is inferred automatically.
-    """
+    """Generate WAV audio from text in the requested language or voice."""
     text = request.text.strip()
     if not text:
         raise HTTPException(status_code=400, detail="Text must not be empty.")
 
-    # Determine the effective language and voice
+    # Determine effective language from voice or request
     language = request.language
     voice = request.voice
 
-    # If a specific voice is given, check it exists and infer language
+    # If a specific voice is given, validate it and infer language
     if voice:
-        # Look up the voice to validate
         voices_by_lang = get_voices_by_language()
         found = False
         for lang, voice_list in voices_by_lang.items():
@@ -90,15 +74,12 @@ async def tts(request: TTSRequest) -> Response:
                 f"Check GET /api/voices for available voices.",
             )
 
-        # When a specific voice ID is given, skip the supported_languages
-        # check — the voice itself is the authority (edge-tts supports
-        # many languages not in our config, e.g. Afrikaans, Arabic, etc.)
+        # Voice ID overrides language config — skip supported_languages check
         pass_through = True
     else:
         pass_through = False
 
     if not pass_through:
-        # Validate language is configured
         if language not in settings.supported_languages:
             raise HTTPException(
                 status_code=400,
@@ -132,7 +113,7 @@ async def tts(request: TTSRequest) -> Response:
     )
 
 
-# ── POST /api/tts-with-model (multipart: upload model from browser) ─────
+# ── POST /api/tts-with-model ──
 
 
 @router.post(
@@ -148,11 +129,7 @@ async def tts(request: TTSRequest) -> Response:
     },
 )
 async def tts_with_model(request: Request) -> Response:
-    """Generate speech using a model uploaded from the browser.
-
-    The model files are written to a temporary directory, used for
-    synthesis, then cleaned up — no persistent server storage needed.
-    """
+    """Synthesise with a user-uploaded model (temp dir, cleaned up after)."""
     form = await request.form()
 
     text = (form.get("text") or "").strip()
@@ -214,15 +191,15 @@ async def tts_with_model(request: Request) -> Response:
     )
 
 
-# ── GET /api/voices ───────────────────────────────────────────────────────
+# ── GET /api/voices ──
 
 
 @router.get("/voices", response_model=GroupedVoicesResponse)
 async def list_voices() -> GroupedVoicesResponse:
-    """Return all available voices grouped by language, with categories."""
+    """All available voices grouped by language."""
     voices_by_lang = get_voices_by_language()
 
-    # Convert to VoiceInfo models grouped by language
+    # Group raw dicts into VoiceInfo models by language
     result: dict[str, list[VoiceInfo]] = {}
     for lang_code, vlist in voices_by_lang.items():
         result[lang_code] = [VoiceInfo(**v) for v in vlist]
@@ -233,12 +210,12 @@ async def list_voices() -> GroupedVoicesResponse:
     return GroupedVoicesResponse(languages=result)
 
 
-# ── GET /api/health ───────────────────────────────────────────────────────
+# ── GET /api/health ──
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
-    """Lightweight health-check endpoint."""
+    """Health check — piper/mms/edge availability, model count, configured langs."""
     piper_available = check_piper_binary()
     mms_available = check_mms_deps()
     edge_available = check_edge_deps()
@@ -256,16 +233,10 @@ async def health() -> HealthResponse:
     )
 
 
-# ── GET /api/models/catalog ──────────────────────────────────────────────
+# ── GET /api/models/catalog ──
 
 
 @router.get("/models/catalog", response_model=ModelCatalogResponse)
 async def catalog() -> ModelCatalogResponse:
-    """Return the curated catalog of downloadable Piper voices.
-
-    Model management (download, import, delete) happens entirely in the
-    browser using IndexedDB — the server only provides the metadata list.
-    When generating TTS with an imported model, the frontend uploads the
-    model files via ``POST /api/tts-with-model``.
-    """
+    """Curated catalog of downloadable Piper voices (frontend manages downloads via IndexedDB)."""
     return ModelCatalogResponse(voices=get_model_catalog())

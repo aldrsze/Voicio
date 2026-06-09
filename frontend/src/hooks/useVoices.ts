@@ -3,7 +3,8 @@ import type { VoiceInfo } from "../types";
 
 const API_BASE = "/api";
 
-export interface GroupedVoices {
+/** Internal state (no function members — safe for useState). */
+interface VoicesState {
   /** All voices flattened into one array */
   all: VoiceInfo[];
   /** Voices grouped by language code */
@@ -11,6 +12,10 @@ export interface GroupedVoices {
   /** Language codes that have available voices */
   languages: string[];
   loading: boolean;
+}
+
+/** Public return type of the useVoices hook. */
+export interface GroupedVoices extends VoicesState {
   /** Re-fetch the voice list from the backend */
   refetch: () => Promise<void>;
 }
@@ -53,7 +58,7 @@ export function voiceDisplayName(voiceId: string): string {
 }
 
 export function useVoices() {
-  const [state, setState] = useState<GroupedVoices>({
+  const [state, setState] = useState<VoicesState>({
     all: [],
     byLanguage: {},
     languages: [],
@@ -96,5 +101,5 @@ export function useVoices() {
     return () => controller.abort();
   }, [fetchVoices]);
 
-  return { ...state, refetch: fetchVoices };
+  return { ...state, refetch: fetchVoices } satisfies GroupedVoices;
 }

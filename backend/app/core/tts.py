@@ -1,11 +1,4 @@
-"""TTS engine abstraction — Piper, MMS-TTS, and Edge TTS voices.
-
-PiperTTS spawns the ``piper`` CLI subprocess per voice model.
-MMSTTS uses Hugging Face ``transformers`` + ``torch`` for ``facebook/mms-tts-tgl``.
-EdgeTTS uses Microsoft Edge online TTS (``edge-tts``) — 300+ voices, no downloads.
-
-Engines are cached by voice ID or model ID.
-"""
+"""TTS engines — Piper (CLI), MMS (Hugging Face), Edge (cloud). Cached by voice/model ID."""
 
 from __future__ import annotations
 
@@ -22,15 +15,15 @@ from typing import NamedTuple
 import numpy as np
 
 from app.config import settings
-from app.core.voice_profiles import discover_models, resolve_voice_engine
+from app.core.voice_profiles import resolve_voice_engine
 
 logger = logging.getLogger(__name__)
 
-# ── Shared types ──────────────────────────────────────────────────────────
+# ── Shared types ──
 
 
 class SynthesisResult(NamedTuple):
-    """Result of a single TTS synthesis call."""
+    """Result of one TTS synthesis call."""
 
     audio_bytes: bytes
     sample_rate: int
@@ -38,7 +31,7 @@ class SynthesisResult(NamedTuple):
 
 
 class TTSBackend(ABC):
-    """Abstract interface all TTS engines must implement."""
+    """Interface all TTS engines must implement."""
 
     @abstractmethod
     def synthesise(
@@ -54,18 +47,13 @@ class TTSBackend(ABC):
         ...
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 #  Piper TTS
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 
 
 class PiperTTS(TTSBackend):
-    """Synchronous wrapper around the ``piper`` CLI for a single voice model.
-
-    Each instance is bound to a specific voice (e.g. ``en_US-lessac-high``).
-    The model path is resolved dynamically from the models directory,
-    supporting both flat and nested directory layouts.
-    """
+    """Synchronous wrapper around the ``piper`` CLI for a single voice model."""
 
     def __init__(self, voice: str, binary: str | None = None) -> None:
         self._binary = binary or settings.piper_binary
@@ -76,10 +64,10 @@ class PiperTTS(TTSBackend):
         self._resolve_model()
         self._validate_binary()
 
-    # ── Model file resolution ─────────────────────────────────────────
+    # ── Model resolution ──
 
     def _resolve_model(self) -> None:
-        """Locate the ``.onnx`` and ``.onnx.json`` files in the models tree."""
+        """Find ``.onnx`` + ``.onnx.json`` in the models tree."""
         model_dir = settings.models_dir
         if not model_dir.is_dir():
             self._available = False
@@ -103,7 +91,7 @@ class PiperTTS(TTSBackend):
         self._available = False
         logger.warning("Voice model %r not found anywhere under %s", self._voice, model_dir)
 
-    # ── Public API ───────────────────────────────────────────────────
+    # ── Public API ──
 
     def is_available(self) -> bool:
         return (
@@ -120,7 +108,7 @@ class PiperTTS(TTSBackend):
         *,
         speed: float = 1.0,
     ) -> SynthesisResult:
-        """Synthesise *text* using the configured Piper voice model."""
+        """Synthesise text with the configured Piper voice model."""
         if not self.is_available():
             raise RuntimeError(
                 f"Piper voice {self._voice!r} is not available.\n\n"
@@ -162,7 +150,7 @@ class PiperTTS(TTSBackend):
             stderr = exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
             raise RuntimeError(f"Piper failed (exit {exc.returncode}): {stderr}") from exc
 
-        # Infer language from voice name prefix (e.g. "en_US" → "en")
+        # Infer lang from voice prefix (e.g. "en_US" → "en")
         inferred_lang = self._voice.split("_")[0]
 
         return SynthesisResult(
@@ -171,10 +159,10 @@ class PiperTTS(TTSBackend):
             language=inferred_lang,
         )
 
-    # ── Helpers ──────────────────────────────────────────────────────
+    # ── Helpers ──
 
     def _validate_binary(self) -> None:
-        """Check whether the piper binary responds. Sets ``self._available``."""
+        """Check piper binary responds. Sets ``self._available``."""
         if self._available is False:
             return  # already failed model resolution
 
@@ -197,7 +185,7 @@ class PiperTTS(TTSBackend):
             logger.warning("Piper binary %r not found on PATH.", self._binary)
 
     def _read_sample_rate(self) -> int:
-        """Parse the sample rate from Piper's JSON config (default 22050)."""
+        """Parse sample rate from Piper JSON config (default 22050)."""
         import json
 
         if self._config_path is None:
@@ -219,11 +207,7 @@ class PiperTTS(TTSBackend):
         speed: float = 1.0,
         binary: str | None = None,
     ) -> SynthesisResult:
-        """Synthesise text using model bytes written to a temp directory.
-
-        This is used for user-uploaded models from the browser. Files are
-        cleaned up after synthesis completes.
-        """
+        """Synthesise with user-uploaded model bytes (temp dir, cleaned up after)."""
         _binary = binary or settings.piper_binary
 
         length_scale = round(1.0 / max(settings.min_speed, min(speed, settings.max_speed)), 3)
@@ -266,7 +250,7 @@ class PiperTTS(TTSBackend):
 
             audio_data = np.frombuffer(proc.stdout, dtype=np.int16)
 
-            # Read sample rate from the uploaded config
+            # Parse sample rate from uploaded config
             import json
             try:
                 cfg = json.loads(json_bytes.decode("utf-8"))
@@ -274,7 +258,6 @@ class PiperTTS(TTSBackend):
             except Exception:
                 sample_rate = 22050
 
-            # Convert to WAV
             buf = io.BytesIO()
             with wave.open(buf, "wb") as wf:
                 wf.setnchannels(1)
@@ -289,21 +272,17 @@ class PiperTTS(TTSBackend):
             )
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 #  MMS-TTS (Tagalog)
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 
 
-# Module-level flag so we don't spam the warning every time.
+# Module-level flag to warn only once.
 _MMS_DEPS_WARNED: bool = False
 
 
 class MMSTTS(TTSBackend):
-    """Tagalog TTS via Hugging Face ``facebook/mms-tts-tgl``.
-
-    Requires ``transformers[torch]`` and ``torch`` — installed as optional
-    dependencies (see ``requirements.txt``).
-    """
+    """Tagalog TTS via Hugging Face ``facebook/mms-tts-tgl`` (optional deps)."""
 
     def __init__(self, model_id: str = "facebook/mms-tts-tgl") -> None:
         self._model_id = model_id
@@ -313,7 +292,7 @@ class MMSTTS(TTSBackend):
         self._available = False
         self._load_model()
 
-    # ── Public API ───────────────────────────────────────────────────
+    # ── Public API ──
 
     def is_available(self) -> bool:
         return self._available
@@ -324,7 +303,7 @@ class MMSTTS(TTSBackend):
         *,
         speed: float = 1.0,
     ) -> SynthesisResult:
-        """Synthesise Tagalog *text* using the MMS-TTS model."""
+        """Synthesise Tagalog text with the MMS-TTS model."""
         if not self._available:
             raise RuntimeError(
                 f"MMS model {self._model_id} is not loaded. "
@@ -335,20 +314,20 @@ class MMSTTS(TTSBackend):
         with self._torch.no_grad():
             outputs = self._model(**inputs)
 
-        # waveform shape: (batch, channels, samples) → squeeze to 1-D
+        # waveform: (batch, ch, samples) → squeeze to 1-D
         audio = outputs.waveform.squeeze().cpu().numpy()
 
-        # Speed adjustment via linear interpolation resampling.
+        # Speed via linear interpolation resampling
         if speed != 1.0:
             orig_len = len(audio)
             new_len = max(1, int(orig_len / speed))
             indices = np.linspace(0, orig_len - 1, new_len)
             audio = np.interp(indices, np.arange(orig_len), audio)
 
-        # Normalise to 16-bit PCM range and clip
+        # Normalise to 16-bit PCM and clip
         peak = np.max(np.abs(audio))
         if peak > 0:
-            audio = audio / peak  # normalise to [-1, 1]
+            audio = audio / peak  # [-1, 1]
         audio_int16 = (audio * 32767).clip(-32768, 32767).astype(np.int16)
 
         buf = io.BytesIO()
@@ -364,10 +343,10 @@ class MMSTTS(TTSBackend):
             language="tl",
         )
 
-    # ── Helpers ──────────────────────────────────────────────────────
+    # ── Helpers ──
 
     def _load_model(self) -> None:
-        """Download and cache the MMS-TTS model from Hugging Face Hub."""
+        """Download and cache MMS model from Hugging Face Hub."""
         global _MMS_DEPS_WARNED
 
         try:
@@ -400,24 +379,15 @@ class MMSTTS(TTSBackend):
             self._available = False
 
 
-# ══════════════════════════════════════════════════════════════════════════
-#  Microsoft Edge TTS (Tagalog)
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
+#  Microsoft Edge TTS
+# ═══════════════════════════════════════
 
 _EDGE_DEPS_WARNED: bool = False
 
 
 class EdgeTTS(TTSBackend):
-    """TTS via Microsoft Edge online TTS service (``edge-tts``).
-
-    Supports 300+ neural voices across 140+ locales. No model files
-    are needed — audio streams from Microsoft's cloud API on each call.
-    The ``edge-tts`` library wraps Microsoft's free Edge TTS API.
-
-    Uses a new event loop inside the thread-pool executor for the
-    async ``edge_tts.Communicate`` API. The returned MP3 stream is
-    transcoded to WAV via ``ffmpeg``.
-    """
+    """Microsoft Edge online TTS — 300+ neural voices, no local models, transcodes MP3→WAV via ffmpeg."""
 
     def __init__(self, voice: str = "fil-PH-BlessicaNeural") -> None:
         self._voice = voice
@@ -435,7 +405,7 @@ class EdgeTTS(TTSBackend):
                 )
                 _EDGE_DEPS_WARNED = True
 
-    # ── Public API ───────────────────────────────────────────────────
+    # ── Public API ──
 
     def is_available(self) -> bool:
         return self._available
@@ -446,7 +416,7 @@ class EdgeTTS(TTSBackend):
         *,
         speed: float = 1.0,
     ) -> SynthesisResult:
-        """Synthesise Tagalog *text* via Microsoft Edge TTS."""
+        """Synthesise text via Microsoft Edge TTS, transcode MP3→WAV."""
         if not self._available:
             raise RuntimeError(
                 "Microsoft Edge TTS is not available — edge-tts library not installed."
@@ -456,7 +426,7 @@ class EdgeTTS(TTSBackend):
 
         import edge_tts
 
-        # Convert float speed (0.5–2.0) to edge-tts rate string (+/-%)
+        # Convert speed (0.5–2.0) to edge-tts rate string (+/-%)
         rate_pct = int(round((speed - 1.0) * 100))
         rate_str = f"{rate_pct:+d}%"
 
@@ -479,7 +449,7 @@ class EdgeTTS(TTSBackend):
                 f"Microsoft Edge TTS synthesis failed for voice {self._voice!r}: {exc}"
             ) from exc
 
-        # Transcode MP3 → WAV (16-bit mono PCM) via ffmpeg
+        # Transcode MP3 → WAV (16-bit mono PCM)
         try:
             proc = subprocess.run(
                 [
@@ -516,20 +486,8 @@ _engines: dict[str, TTSBackend] = {}
 
 
 def get_engine(language: str, voice: str | None = None) -> TTSBackend:
-    """Return (or create) the TTS engine for the given language or voice.
-
-    Engines are cached once created. When a specific ``voice`` ID is
-    provided, it is used as the cache key. The engine type (Piper vs MMS)
-    is determined from the language's config.
-
-    Args:
-        language: Language code (e.g. ``"en"``, ``"tl"``).
-        voice: Optional specific voice ID (e.g. ``"en_US-amy-medium"``).
-
-    Returns:
-        A ``TTSBackend`` instance ready for synthesis.
-    """
-    # If a specific voice is given, cache by voice ID
+    """Return (or create) the TTS engine for the given language or voice. Cached once created."""
+    # Cache by voice ID when specified
     if voice:
         if voice not in _engines:
             voice_engine = resolve_voice_engine(voice)
@@ -544,7 +502,7 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
                 _engines[voice] = PiperTTS(voice=voice)
         return _engines[voice]
 
-    # Otherwise, use the language-default voice from config
+    # Use language-default voice when no specific voice
     if language not in _engines:
         lang_config = settings.supported_languages.get(language)
         if not lang_config:
@@ -569,13 +527,13 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
     return _engines[language]
 
 
-# ══════════════════════════════════════════════════════════════════════════
-#  Health-check utilities (lightweight, no instance needed)
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
+#  Health checks (lightweight, no instance needed)
+# ═══════════════════════════════════════
 
 
 def check_piper_binary() -> bool:
-    """Quick check if the piper CLI binary is available (no model loading)."""
+    """Check if piper CLI binary is on PATH."""
     try:
         binary = settings.piper_binary
         proc = subprocess.run([binary, "--help"], capture_output=True, timeout=10)
@@ -585,7 +543,7 @@ def check_piper_binary() -> bool:
 
 
 def check_mms_deps() -> bool:
-    """Check if MMS dependencies are importable (no model loading)."""
+    """Check if torch + transformers are importable."""
     try:
         import torch  # noqa: F401
         import transformers  # noqa: F401
@@ -595,7 +553,7 @@ def check_mms_deps() -> bool:
 
 
 def check_edge_deps() -> bool:
-    """Check if edge-tts library is importable (no model loading)."""
+    """Check if edge-tts is importable."""
     try:
         import edge_tts  # noqa: F401
         return True
@@ -603,9 +561,9 @@ def check_edge_deps() -> bool:
         return False
 
 
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 #  Async dispatch
-# ══════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════
 
 
 async def synthesise_async(
@@ -615,7 +573,7 @@ async def synthesise_async(
     voice: str | None = None,
     speed: float = 1.0,
 ) -> SynthesisResult:
-    """Non-blocking wrapper — runs the correct TTS engine in a thread pool."""
+    """Run the correct TTS engine in a thread pool."""
     engine = get_engine(language, voice=voice)
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(
