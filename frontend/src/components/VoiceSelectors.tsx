@@ -166,6 +166,27 @@ export function VoiceSelector({
             </span>
           )}
 
+          {/* Engine badge — show for non-Piper engines */}
+          {selectedVoiceInfo.engine && selectedVoiceInfo.engine !== "piper" && (
+            <span
+              title={
+                selectedVoiceInfo.engine === "edge"
+                  ? "Fast; no model downloads needed — streams from Microsoft Edge TTS"
+                  : selectedVoiceInfo.engine === "mms"
+                    ? "Model downloads on first use — Hugging Face MMS-TTS"
+                    : undefined
+              }
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider ${
+                selectedVoiceInfo.engine === "edge"
+                  ? "bg-indigo-50 text-indigo-600"
+                  : "bg-violet-50 text-violet-600"
+              }`}
+            >
+              <span>{selectedVoiceInfo.engine === "edge" ? "⚡" : "☁️"}</span>
+              {selectedVoiceInfo.engine === "edge" ? "Edge" : selectedVoiceInfo.engine.toUpperCase()}
+            </span>
+          )}
+
           {/* Description tooltip */}
           {selectedVoiceInfo.description && (
             <span
@@ -181,11 +202,15 @@ export function VoiceSelector({
   );
 }
 
-/** Format a voice as "Name — vibe · quality" for the option text */
+/** Format a voice for the select option text */
 function formatVoiceOption(v: VoiceInfo): string {
-  const name = v.id.includes("facebook/mms") ? "Tagalog" : voiceDisplayName(v.id);
+  // Use the name from the API; fall back to parsing the ID
+  let name = v.name || voiceDisplayName(v.id);
+  if (!name && v.id.includes("facebook/mms")) name = "Tagalog";
+
   const badge = v.gender && v.gender !== "mixed" ? genderIcon(v.gender) : "";
-  return `${badge ? badge + " " : ""}${name}`;
+  const edge = v.engine === "edge" ? "⚡" : "";
+  return `${badge ? badge + " " : ""}${edge ? edge + " " : ""}${name}`;
 }
 
 function genderIcon(gender: string): string {

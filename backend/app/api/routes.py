@@ -16,6 +16,7 @@ from app.api.schemas import GroupedVoicesResponse, HealthResponse, TTSRequest, V
 from app.config import settings
 from app.core.audio import synthesise_text
 from app.core.tts import (
+    check_edge_deps,
     check_mms_deps,
     check_piper_binary,
     get_engine,
@@ -83,15 +84,23 @@ async def tts(request: TTSRequest) -> Response:
                 f"Check GET /api/voices for available voices.",
             )
 
-    # Validate language is configured
-    if language not in settings.supported_languages:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Unsupported language: {language!r}. "
-                f"Supported: {', '.join(settings.supported_languages)}"
-            ),
-        )
+        # When a specific voice ID is given, skip the supported_languages
+        # check — the voice itself is the authority (edge-tts supports
+        # many languages not in our config, e.g. Afrikaans, Arabic, etc.)
+        pass_through = True
+    else:
+        pass_through = False
+
+    if not pass_through:
+        # Validate language is configured
+        if language not in settings.supported_languages:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Unsupported language: {language!r}. "
+                    f"Supported: {', '.join(settings.supported_languages)}"
+                ),
+            )
 
     try:
         wav_bytes = await synthesise_text(
@@ -144,6 +153,7 @@ async def health() -> HealthResponse:
     """Lightweight health-check endpoint."""
     piper_available = check_piper_binary()
     mms_available = check_mms_deps()
+    edge_available = check_edge_deps()
 
     model_dir = settings.models_dir
     models_found = len(list(model_dir.rglob("*.onnx"))) if model_dir.is_dir() else 0
@@ -152,6 +162,7 @@ async def health() -> HealthResponse:
         status="ok",
         piper_available=piper_available,
         mms_available=mms_available,
+        edge_available=edge_available,
         models_found=models_found,
         languages=list(settings.supported_languages.keys()),
     )

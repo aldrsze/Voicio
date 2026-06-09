@@ -15,21 +15,33 @@ export interface GroupedVoices {
 
 /**
  * Returns voice name portion from a voice ID.
- * e.g. "en_US-amy-medium" → "Amy"
- *      "en_GB-cori-high" → "Cori"
+ * Supports both Piper and Edge TTS formats:
+ *   Piper: "en_US-amy-medium" → "Amy"
+ *          "en_GB-cori-high" → "Cori"
+ *   Edge:  "fil-PH-AngeloNeural" → "Angelo"
+ *          "en-US-JennyNeural" → "Jenny"
  */
 export function voiceDisplayName(voiceId: string): string {
-  // Strip language_region- prefix and -quality suffix
-  // e.g. "en_US-amy-medium" → "amy" → "Amy"
+  // Edge TTS format: "{locale}-{Name}[Multilingual]Neural"
+  if (/Neural$/.test(voiceId)) {
+    const parts = voiceId.split("-");
+    const name = parts[parts.length - 1];
+    // Strip known suffixes in order of specificity
+    for (const suffix of ["MultilingualNeural", "Neural"]) {
+      if (name.endsWith(suffix)) {
+        return name.slice(0, -suffix.length);
+      }
+    }
+    return name; // fallback — no known suffix
+  }
+
+  // Piper format: "lang_REGION-name-quality"
   const parts = voiceId.split("-");
   if (parts.length < 3) return voiceId;
 
-  // The voice name is everything between the first two parts (region) and the last (quality)
-  // en_US-amy-medium → parts = ["en_US", "amy", "medium"] → name = "amy"
-  // en_GB-northern_english_male-medium → parts = ["en_GB", "northern", "english", "male-medium"]... hmm
-  // Actually: "en_GB-northern_english_male-medium" → split by "-" →
-  // ["en_GB", "northern", "english", "male", "medium"]
-  // The first part is lang_region, the last is quality, everything in between is the name.
+  // The voice name is everything between lang_REGION (first part) and quality (last)
+  // e.g. "en_US-amy-medium" → parts = ["en_US", "amy", "medium"] → name = "amy"
+  // e.g. "en_GB-northern_english_male-medium" → name = "northern english male"
   const nameParts = parts.slice(1, -1); // drop lang_region and quality
   const name = nameParts
     .join(" ")

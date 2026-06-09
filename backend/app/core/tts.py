@@ -1,9 +1,10 @@
-"""TTS engine abstraction — Piper for most languages, MMS-TTS for Tagalog.
+"""TTS engine abstraction — Piper, MMS-TTS, and Edge TTS voices.
 
 PiperTTS spawns the ``piper`` CLI subprocess per voice model.
 MMSTTS uses Hugging Face ``transformers`` + ``torch`` for ``facebook/mms-tts-tgl``.
+EdgeTTS uses Microsoft Edge online TTS (``edge-tts``) — 300+ voices, no downloads.
 
-Engines are cached by voice ID (for Piper) or model ID (for MMS).
+Engines are cached by voice ID or model ID.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from typing import NamedTuple
 import numpy as np
 
 from app.config import settings
-from app.core.voice_profiles import discover_models
+from app.core.voice_profiles import discover_models, resolve_voice_engine
 
 logger = logging.getLogger(__name__)
 
@@ -320,8 +321,116 @@ class MMSTTS(TTSBackend):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-#  Engine registry
+#  Microsoft Edge TTS (Tagalog)
 # ══════════════════════════════════════════════════════════════════════════
+
+_EDGE_DEPS_WARNED: bool = False
+
+
+class EdgeTTS(TTSBackend):
+    """TTS via Microsoft Edge online TTS service (``edge-tts``).
+
+    Supports 300+ neural voices across 140+ locales. No model files
+    are needed — audio streams from Microsoft's cloud API on each call.
+    The ``edge-tts`` library wraps Microsoft's free Edge TTS API.
+
+    Uses a new event loop inside the thread-pool executor for the
+    async ``edge_tts.Communicate`` API. The returned MP3 stream is
+    transcoded to WAV via ``ffmpeg``.
+    """
+
+    def __init__(self, voice: str = "fil-PH-BlessicaNeural") -> None:
+        self._voice = voice
+        self._available = False
+        try:
+            import edge_tts  # noqa: F401
+            self._available = True
+        except ImportError:
+            global _EDGE_DEPS_WARNED
+            if not _EDGE_DEPS_WARNED:
+                logger.warning(
+                    "edge-tts library not installed. "
+                    "Microsoft Edge TTS voices will be unavailable. "
+                    "Install with: pip install edge-tts"
+                )
+                _EDGE_DEPS_WARNED = True
+
+    # ── Public API ───────────────────────────────────────────────────
+
+    def is_available(self) -> bool:
+        return self._available
+
+    def synthesise(
+        self,
+        text: str,
+        *,
+        speed: float = 1.0,
+    ) -> SynthesisResult:
+        """Synthesise Tagalog *text* via Microsoft Edge TTS."""
+        if not self._available:
+            raise RuntimeError(
+                "Microsoft Edge TTS is not available — edge-tts library not installed."
+            )
+
+        import asyncio
+
+        import edge_tts
+
+        # Convert float speed (0.5–2.0) to edge-tts rate string (+/-%)
+        rate_pct = int(round((speed - 1.0) * 100))
+        rate_str = f"{rate_pct:+d}%"
+
+        async def _synthesise() -> bytes:
+            communicate = edge_tts.Communicate(
+                text,
+                self._voice,
+                rate=rate_str,
+            )
+            audio_bytes = b""
+            async for chunk in communicate.stream():
+                if chunk["type"] == "audio":
+                    audio_bytes += chunk["data"]
+            return audio_bytes
+
+        try:
+            mp3_bytes = asyncio.run(_synthesise())
+        except Exception as exc:
+            raise RuntimeError(
+                f"Microsoft Edge TTS synthesis failed for voice {self._voice!r}: {exc}"
+            ) from exc
+
+        # Transcode MP3 → WAV (16-bit mono PCM) via ffmpeg
+        try:
+            proc = subprocess.run(
+                [
+                    "ffmpeg",
+                    "-i", "pipe:0",
+                    "-f", "wav",
+                    "-acodec", "pcm_s16le",
+                    "-ac", "1",
+                    "-ar", "24000",
+                    "pipe:1",
+                ],
+                input=mp3_bytes,
+                capture_output=True,
+                timeout=60,
+                check=True,
+            )
+            wav_bytes = proc.stdout
+        except FileNotFoundError:
+            raise RuntimeError(
+                "ffmpeg not found on PATH. "
+                "Install ffmpeg to use Microsoft Edge TTS voices."
+            ) from None
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
+            raise RuntimeError(f"ffmpeg transcoding failed: {stderr}") from exc
+
+        return SynthesisResult(
+            audio_bytes=wav_bytes,
+            sample_rate=24000,
+            language="tl",
+        )
 
 _engines: dict[str, TTSBackend] = {}
 
@@ -343,9 +452,14 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
     # If a specific voice is given, cache by voice ID
     if voice:
         if voice not in _engines:
-            lang_config = settings.supported_languages.get(language)
-            if lang_config and lang_config["engine"] == "mms":
-                _engines[voice] = MMSTTS(model_id=lang_config["model_id"])
+            voice_engine = resolve_voice_engine(voice)
+            if voice_engine == "edge":
+                _engines[voice] = EdgeTTS(voice=voice)
+            elif voice_engine == "mms":
+                lang_config = settings.supported_languages.get(language, {})
+                _engines[voice] = MMSTTS(
+                    model_id=lang_config.get("model_id", "facebook/mms-tts-tgl")
+                )
             else:
                 _engines[voice] = PiperTTS(voice=voice)
         return _engines[voice]
@@ -364,6 +478,9 @@ def get_engine(language: str, voice: str | None = None) -> TTSBackend:
         elif lang_config["engine"] == "piper":
             default_voice = lang_config.get("voice", "")
             _engines[language] = PiperTTS(voice=default_voice)
+        elif lang_config["engine"] == "edge":
+            default_voice = lang_config.get("voice", "")
+            _engines[language] = EdgeTTS(voice=default_voice)
         else:
             raise ValueError(
                 f"Unknown engine type {lang_config['engine']!r} for language {language!r}"
@@ -392,6 +509,15 @@ def check_mms_deps() -> bool:
     try:
         import torch  # noqa: F401
         import transformers  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def check_edge_deps() -> bool:
+    """Check if edge-tts library is importable (no model loading)."""
+    try:
+        import edge_tts  # noqa: F401
         return True
     except ImportError:
         return False

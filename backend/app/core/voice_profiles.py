@@ -6,10 +6,14 @@ and a human-readable description.
 
 New models added to ``models/`` are discovered on server restart — no
 configuration changes needed.
+
+Microsoft Edge TTS voices are discovered at startup via the ``edge-tts``
+library (no model files needed — they stream from Microsoft's cloud API).
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -17,6 +21,10 @@ from pathlib import Path
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# ── Module-level cache for Edge TTS voices ──────────────────────────────
+# Populated asynchronously at startup so the first API call is fast.
+_edge_voice_cache: list[dict] | None = None
 
 # ── Voice metadata ──────────────────────────────────────────────────────────
 # gender: "female" | "male" | "non-binary" | "mixed"
@@ -622,6 +630,13 @@ def get_voices_by_language() -> dict[str, list[dict]]:
         }
     )
 
+    # ── Edge TTS (dynamically discovered, no model downloads) ─────────
+    for ev in _fetch_edge_voices():
+        lang = ev["language"]
+        if lang not in grouped:
+            grouped[lang] = []
+        grouped[lang].append(ev)
+
     return grouped
 
 
@@ -633,3 +648,167 @@ def _check_mms_importable() -> bool:
         return True
     except ImportError:
         return False
+
+
+def _check_edge_importable() -> bool:
+    """Lightweight check if edge-tts is available."""
+    try:
+        import edge_tts  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+# ── Locale-to-language mapping ─────────────────────────────────────────
+# Microsoft Edge locales sometimes use 3-letter codes that differ from
+# our internal language codes.
+_LOCALE_TO_LANG: dict[str, str] = {
+    "fil": "tl",  # Filipino → Tagalog
+}
+
+
+def _locale_to_lang(locale: str) -> str:
+    """Map a Microsoft locale code to our internal language code.
+
+    e.g. ``"fil-PH"`` → ``"tl"``,  ``"en-US"`` → ``"en"``
+    """
+    lang_part = locale.split("-")[0].lower()
+    return _LOCALE_TO_LANG.get(lang_part, lang_part)
+
+
+def _parse_edge_voice_name(short_name: str) -> str:
+    """Extract a clean display name from an edge-tts ShortName.
+
+    e.g. ``"fil-PH-AngeloNeural"``         → ``"Angelo"``
+         ``"en-US-JennyNeural"``           → ``"Jenny"``
+         ``"en-AU-WilliamMultilingualNeural"`` → ``"William"``
+    """
+    # ShortName format: {locale}-{Name}[Multilingual]Neural
+    name_part = short_name.rsplit("-", 1)[-1]
+    # Strip suffix in order of specificity
+    for suffix in ("MultilingualNeural", "Neural"):
+        if name_part.endswith(suffix):
+            name_part = name_part[: -len(suffix)]
+            break
+    return name_part
+
+
+def _fetch_edge_voices() -> list[dict]:
+    """Return all available Edge TTS voices from the module-level cache.
+
+    The cache is populated at startup by :func:`prewarm_edge_voices`.
+    If the cache is empty (e.g. startup hasn't completed or edge-tts
+    is unavailable), returns an empty list.
+    """
+    global _edge_voice_cache
+    if _edge_voice_cache is not None:
+        return _edge_voice_cache
+
+    # Cache not yet populated — try a synchronous fallback if importable.
+    if _check_edge_importable():
+        # This will work if prewarm hasn't run yet (e.g. in tests).
+        # Use asyncio.run in a separate thread to avoid nested-loop errors.
+        try:
+            import edge_tts
+
+            raw = _run_async(edge_tts.list_voices)
+            _edge_voice_cache = _build_edge_voice_list(raw)
+            return _edge_voice_cache
+        except Exception:
+            logger.warning("Failed to fetch edge-tts voices synchronously — they'll be available on the next call.")
+            _edge_voice_cache = []
+
+    return []
+
+
+def _run_async(coro_factory, *args):
+    """Run an async coroutine from a sync context, handling loop nesting."""
+    try:
+        return asyncio.run(coro_factory(*args))
+    except RuntimeError:
+        # Already in an event loop — run in a new thread.
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, coro_factory(*args))
+            return future.result()
+
+
+async def prewarm_edge_voices() -> None:
+    """Pre-fetch the list of available Edge TTS voices at startup.
+
+    Called from the app startup event so the cache is ready before
+    the first API request.  Failures are logged but do not crash
+    the server — the voice list will be empty until a later refresh.
+    """
+    global _edge_voice_cache
+    try:
+        import edge_tts
+
+        raw = await edge_tts.list_voices()
+        _edge_voice_cache = _build_edge_voice_list(raw)
+        logger.info(
+            "Edge TTS voices pre-warmed: %d voices across %d languages",
+            len(_edge_voice_cache),
+            len({v["language"] for v in _edge_voice_cache}),
+        )
+    except ImportError:
+        logger.info("edge-tts not installed — Edge voices unavailable.")
+        _edge_voice_cache = []
+    except Exception:
+        logger.warning("Failed to pre-warm edge-tts voice cache.", exc_info=True)
+        _edge_voice_cache = []
+
+
+def _build_edge_voice_list(raw_voices: list[dict]) -> list[dict]:
+    """Convert the raw edge-tts API response into our voice-info format."""
+    result: list[dict] = []
+    for v in raw_voices:
+        voice_id = v.get("ShortName") or v.get("Name", "")
+        if not voice_id:
+            continue
+
+        locale = v.get("Locale", "")
+        gender_raw = v.get("Gender", "").lower()
+        personalities = v.get("VoiceTag", {}).get("VoicePersonalities", [])
+
+        lang_code = _locale_to_lang(locale)
+        region = locale.split("-")[1].upper() if "-" in locale else ""
+
+        gender = "female" if "female" in gender_raw else "male" if "male" in gender_raw else "mixed"
+
+        # Use Microsoft's personality tags as vibe; fall back to "natural"
+        vibe = list(personalities) if personalities else ["natural"]
+
+        display_name = _parse_edge_voice_name(voice_id)
+
+        result.append({
+            "id": voice_id,
+            "name": display_name,
+            "language": lang_code,
+            "region": region,
+            "quality": "high",
+            "engine": "edge",
+            "gender": gender,
+            "vibe": vibe,
+            "description": (
+                f"{gender.title()} neural voice via Microsoft Edge TTS — "
+                f"fast, no model downloads needed"
+            ),
+            "available": True,  # edge-tts is importable → ready to use
+        })
+    return result
+
+
+def resolve_voice_engine(voice_id: str) -> str | None:
+    """Return the engine type (``\"piper\"``, ``\"mms\"``, ``\"edge\"``) for a voice ID.
+
+    Looks up the voice across all language groups. Returns ``None`` if the
+    voice ID is not found.
+    """
+    voices = get_voices_by_language()
+    for lang_voices in voices.values():
+        for v in lang_voices:
+            if v["id"] == voice_id:
+                return v.get("engine", "piper")
+    return None

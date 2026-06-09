@@ -19,8 +19,11 @@ torch>=2.3.0
 # accelerate>=0.30.0   # optional: speeds up MMS inference
 
 # ── Audio processing (stdlib wave module used by default) ────────────────
-# pydub>=0.25.1
+# pydub>=0.25.1   (disabled on Python 3.14+ — use ffmpeg via subprocess instead)
 # ffmpeg-python>=0.2.0
+
+# ── Microsoft Edge TTS ────────────────────────────────────────────────────
+edge-tts>=6.1.0
 
 # ── Utilities ─────────────────────────────────────────────────────────────
 python-multipart>=0.0.9
