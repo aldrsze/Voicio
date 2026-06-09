@@ -87,7 +87,7 @@ export function HomePage() {
             <img 
               src="/cat_standing.png" 
               alt="Voicio Cat Mascot" 
-              className="w-32 sm:w-48 md:w-full max-w-30 sm:max-w-xs md:max-w-none h-auto object-contain scale-[1.2] sm:scale-100 md:scale-[0.8] md:translate-x-5 origin-right" 
+              className={`w-32 sm:w-48 md:w-full max-w-30 sm:max-w-xs md:max-w-none h-auto object-contain scale-[1.2] sm:scale-100 md:scale-[0.8] md:translate-x-5 origin-right transition-opacity duration-200 ${isModalOpen ? 'opacity-0' : 'opacity-100'}`} 
             />
           </div>
         </div>
@@ -161,7 +161,7 @@ export function HomePage() {
       {/* Languages Modal */}
       {isModalOpen && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-white/95 dark:bg-black/95 sm:bg-white/80 sm:dark:bg-black/80 sm:backdrop-blur-sm overflow-hidden"
+          className="fixed inset-0 z-9999 flex items-center justify-center p-4 sm:p-6 bg-white dark:bg-black sm:bg-white/80 sm:dark:bg-black/80 sm:backdrop-blur-sm overflow-hidden"
           style={{ WebkitTransform: "translateZ(0)" } as React.CSSProperties}
           onClick={() => setIsModalOpen(false)}
         >
