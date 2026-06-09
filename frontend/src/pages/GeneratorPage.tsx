@@ -326,12 +326,12 @@ export function GeneratorPage() {
   }, []);
 
   return (
-    <main className="mx-auto mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8">
+    <main className="mx-auto mt-0 md:mt-6 max-w-5xl px-4 pb-16 sm:px-6 lg:px-8 overflow-x-hidden">
       {/* ── Generator + History side by side ──────────────── */}
-      <div id="generator" className="flex flex-col gap-4 lg:flex-row lg:items-stretch scroll-mt-8">
+      <div id="generator" className="flex flex-col gap-4 xl:flex-row xl:items-stretch scroll-mt-8">
           {/* ── Generator card ────────────────────────────── */}
           <div
-            className="animate-in flex flex-1 flex-col border border-black/10 bg-white p-5 sm:p-7 dark:border-white/10 dark:bg-bento-bg-dark"
+            className="animate-in flex flex-1 w-full flex-col border border-black/10 bg-white p-5 sm:p-7 dark:border-white/10 dark:bg-bento-bg-dark"
             style={{ "--delay": "100ms" } as React.CSSProperties}
           >
             <div className="flex flex-col gap-5">
@@ -389,7 +389,7 @@ export function GeneratorPage() {
 
           {/* ── History panel ─────────────────────────────── */}
           <div
-            className="animate-in flex flex-col lg:w-80 lg:min-w-80"
+            className="animate-in flex w-full flex-col xl:w-80 xl:min-w-80"
             style={{ "--delay": "150ms" } as React.CSSProperties}
           >
             <HistoryPanel

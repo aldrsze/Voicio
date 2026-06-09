@@ -174,7 +174,7 @@ export function VoiceSelector({
       </label>
 
       {/* ── Engine filter tabs ── */}
-      <div className="flex gap-1" role="tablist" aria-label="Engine filter">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-1" role="tablist" aria-label="Engine filter">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -183,7 +183,7 @@ export function VoiceSelector({
             onClick={() => setEngineFilter(tab.key)}
             disabled={disabled}
             className={`
-              flex items-center gap-1.5 px-3 py-1.5
+              flex w-full items-center justify-center sm:justify-start sm:w-auto gap-1.5 px-3 py-2 sm:py-1.5
               font-sans text-xs font-semibold tracking-wide
               transition-all duration-150
               disabled:cursor-not-allowed disabled:opacity-50
@@ -214,7 +214,7 @@ export function VoiceSelector({
           type="button"
           onClick={() => setShowModelManager((v) => !v)}
           className={`
-            ml-auto flex items-center gap-1.5 px-2.5 py-1.5
+            sm:ml-auto flex w-full items-center justify-center sm:justify-start sm:w-auto gap-1.5 px-2.5 py-2 sm:py-1.5
             font-sans text-xs font-semibold tracking-wide
             transition-all duration-150
             ${
@@ -297,10 +297,10 @@ export function VoiceSelector({
 
       {/* Selected voice character card — monochrome badges */}
       {selectedVoiceInfo && (
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 px-1">
+        <div className="mt-1 flex flex-nowrap overflow-x-auto items-center gap-1.5 px-1 pb-1 -mb-1 scrollbar-hide">
           {/* Gender badge */}
           {selectedVoiceInfo.gender && selectedVoiceInfo.gender !== "mixed" && (
-            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+            <span className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.gender}
             </span>
           )}
@@ -309,20 +309,20 @@ export function VoiceSelector({
           {selectedVoiceInfo.vibe?.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
+              className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
             >
               {tag}
             </span>
           ))}
           {selectedVoiceInfo.vibe && selectedVoiceInfo.vibe.length > 3 && (
-            <span className="text-[10px] text-black/50 dark:text-white/50">
+            <span className="shrink-0 text-[9px] text-black/50 dark:text-white/50">
               +{selectedVoiceInfo.vibe.length - 3}
             </span>
           )}
 
           {/* Quality badge */}
           {selectedVoiceInfo.quality && (
-            <span className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
+            <span className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80">
               {selectedVoiceInfo.quality}
             </span>
           )}
@@ -337,7 +337,7 @@ export function VoiceSelector({
                     ? "Model downloads on first use — Hugging Face MMS-TTS"
                     : undefined
               }
-              className="inline-flex items-center gap-1 border border-black/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
+              className="inline-flex shrink-0 items-center gap-1 border border-black/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-black/70 dark:border-white/10 dark:text-white/80"
             >
               {selectedVoiceInfo.engine === "edge" ? "Edge" : selectedVoiceInfo.engine.toUpperCase()}
             </span>

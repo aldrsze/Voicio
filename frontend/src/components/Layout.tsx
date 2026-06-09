@@ -38,7 +38,7 @@ export function Layout() {
   };
 
   return (
-    <div className="min-h-svh bg-white text-black transition-colors dark:bg-black dark:text-white">
+    <div className="min-h-svh bg-white text-black dark:bg-black dark:text-white">
       <header
         className="sticky top-0 z-40 w-full bg-white/80 dark:bg-black/80 backdrop-blur-md border-b border-black/10 dark:border-white/10"
         style={{ "--delay": "0ms" } as React.CSSProperties}
@@ -47,7 +47,7 @@ export function Layout() {
           <div className="animate-in flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden bg-transparent">
-              <img src="/cat.png" alt="Voicio Logo" className="h-full w-full object-contain scale-[2] dark:invert" />
+              <img src="/cat.png" alt="Voicio Logo" className="h-full w-full object-contain scale-[0.9]" />
             </div>
             <div>
               <h1 className="font-sans text-2xl font-bold tracking-tight leading-8">
@@ -69,7 +69,7 @@ export function Layout() {
               >
                 Features
               </a>
-              <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
+              <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Github</a>
             </nav>
             
             {/* Dark mode toggle */}
@@ -93,7 +93,7 @@ export function Layout() {
             >
               Features
             </a>
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
+            <a href="https://github.com/aldrsze" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Github</a>
           </nav>
         </div>
       </header>

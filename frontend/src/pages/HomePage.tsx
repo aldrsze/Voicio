@@ -86,7 +86,7 @@ export function HomePage() {
             <img 
               src="/cat_standing.png" 
               alt="Voicio Cat Mascot" 
-              className="w-32 sm:w-48 md:w-full max-w-30 sm:max-w-xs md:max-w-none h-auto object-contain scale-[3] sm:scale-125 md:scale-[1.75] translate-x-13 md:translate-x-20 origin-right dark:invert" 
+              className="w-32 sm:w-48 md:w-full max-w-30 sm:max-w-xs md:max-w-none h-auto object-contain scale-[1.2] sm:scale-100 md:scale-[0.8] md:translate-x-5 origin-right" 
             />
           </div>
         </div>
@@ -153,7 +153,7 @@ export function HomePage() {
         </p>
         <div className="flex gap-6 font-sans text-[11px] text-black/60 dark:text-white/60">
           <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
-          <a href="#" className="hover:text-black dark:hover:text-white transition-colors">Twitter / X</a>
+          <a href="https://aldrsze.is-pinoy.dev/" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Dev Website</a>
           <Link to="/app" className="hover:text-black dark:hover:text-white transition-colors">TTS</Link>
         </div>
       </footer>
