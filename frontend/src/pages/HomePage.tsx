@@ -3,7 +3,6 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Globe } from "lucide-react";
 import { useVoices } from "../hooks/useVoices";
-import * as Flags from 'country-flag-icons/string/3x2';
 
 import { hasFlag } from 'country-flag-icons';
 
@@ -31,7 +30,7 @@ function getCountryCode(lang: string) {
     code = langToCountry[baseLang] || baseLang.toUpperCase();
   }
 
-  if (code && hasFlag(code)) return code as keyof typeof Flags;
+  if (code && hasFlag(code)) return code;
   return null;
 }
 
@@ -180,7 +179,7 @@ export function HomePage() {
                 &times;
               </button>
             </div>
-            <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0">
+            <div className="p-4 sm:p-5 overflow-y-auto custom-scrollbar flex-1 min-h-0" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
               {loading ? (
                 <p className="font-sans text-black/60 dark:text-white/60">Fetching language database...</p>
               ) : languages.length === 0 ? (
@@ -189,14 +188,13 @@ export function HomePage() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
                   {languages.map((lang) => {
                     const countryCode = getCountryCode(lang);
-                    const flagSvgString = countryCode ? ((Flags as any)[countryCode] || (Flags as any).default?.[countryCode]) : null;
-                    const encodedSvg = flagSvgString ? `data:image/svg+xml;utf8,${encodeURIComponent(flagSvgString)}` : null;
                     const name = getCountryName(lang);
+                    const flagUrl = countryCode ? `https://flagcdn.com/w40/${countryCode.toLowerCase()}.png` : null;
                     return (
-                      <div key={lang} className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors">
-                        {encodedSvg ? (
-                          <div className="shrink-0 shadow-sm border border-black/10 dark:border-white/10 overflow-hidden rounded-sm flex items-center justify-center">
-                            <img src={encodedSvg} alt={name} title={name} className="block object-cover" style={{ width: '32px', height: '22px' }} loading="lazy" />
+                      <div key={lang} className="flex flex-col items-center justify-center gap-2 p-3 sm:p-4 border border-black/10 dark:border-white/10 bg-black/5 dark:bg-white/5 rounded hover:bg-black/10 dark:hover:bg-white/10 transition-colors" style={{ transform: 'translateZ(0)' }}>
+                        {flagUrl ? (
+                          <div className="shrink-0 border border-black/10 dark:border-white/10 rounded-sm flex items-center justify-center bg-white">
+                            <img src={flagUrl} alt={name} title={name} className="block object-cover rounded-sm" style={{ width: '32px', height: '22px' }} loading="lazy" crossOrigin="anonymous" />
                           </div>
                         ) : (
                           <Globe className="shrink-0 w-5 h-5 text-black/40 dark:text-white/40 stroke-[2.5]" />
