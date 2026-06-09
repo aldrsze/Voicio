@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { Link } from "react-router-dom";
 import { TextInput } from "../components/TextInput";
 import { Toggle } from "../components/Toggle";
 import { VoiceSelector } from "../components/VoiceSelectors";
@@ -452,9 +452,9 @@ export function GeneratorPage() {
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Status Text */}
         <p
-          className="animate-in mt-8 text-center font-sans text-[11px] text-black/60 dark:text-white/70"
+          className="animate-in mt-8 text-center font-sans text-[11px] text-black/60 dark:text-white/70 mb-8"
           style={{ "--delay": "300ms" } as React.CSSProperties}
         >
           {hasText && selectedVoice
@@ -463,6 +463,18 @@ export function GeneratorPage() {
               : "Auto-generate is off — toggle it on to regenerate on speed/voice changes."
             : "Select a voice and type text to generate speech."}
         </p>
+
+      {/* Footer */}
+      <footer className="mt-8 border-t border-black/10 pt-8 pb-8 dark:border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <p className="font-sans text-[11px] text-black/40 dark:text-white/40">
+          © {new Date().getFullYear()} Built by Aldrsze. Free for everyone.
+        </p>
+        <div className="flex gap-6 font-sans text-[11px] text-black/60 dark:text-white/60">
+          <a href="https://github.com" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">GitHub</a>
+          <a href="https://aldrsze.is-pinoy.dev/" target="_blank" rel="noreferrer" className="hover:text-black dark:hover:text-white transition-colors">Dev Website</a>
+          <Link to="/" className="hover:text-black dark:hover:text-white transition-colors">Home</Link>
+        </div>
+      </footer>
       {/* Shortcut hint */}
       {hasText && selectedVoice && (
         <div className="pointer-events-none fixed bottom-4 right-4 z-50 hidden items-center gap-1.5 sm:flex">

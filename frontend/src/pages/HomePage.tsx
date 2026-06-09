@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { Globe } from "lucide-react";
 import { useVoices } from "../hooks/useVoices";
@@ -159,9 +160,10 @@ export function HomePage() {
         </div>
       </footer>
       {/* Languages Modal */}
-      {isModalOpen && (
+      {isModalOpen && createPortal(
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-white/95 dark:bg-black/95 sm:bg-white/80 sm:dark:bg-black/80 sm:backdrop-blur-sm overflow-hidden"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-white/95 dark:bg-black/95 sm:bg-white/80 sm:dark:bg-black/80 sm:backdrop-blur-sm overflow-hidden"
+          style={{ WebkitTransform: "translateZ(0)" } as React.CSSProperties}
           onClick={() => setIsModalOpen(false)}
         >
           <div 
@@ -210,7 +212,8 @@ export function HomePage() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </main>
   );
