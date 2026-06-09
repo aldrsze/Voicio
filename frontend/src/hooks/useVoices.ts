@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { VoiceInfo } from "../types";
 
 const API_BASE = "/api";
@@ -11,6 +11,8 @@ export interface GroupedVoices {
   /** Language codes that have available voices */
   languages: string[];
   loading: boolean;
+  /** Re-fetch the voice list from the backend */
+  refetch: () => Promise<void>;
 }
 
 /**
@@ -58,45 +60,41 @@ export function useVoices() {
     loading: true,
   });
 
-  useEffect(() => {
-    let cancelled = false;
+  const fetchVoices = useCallback(async () => {
+    setState((prev) => ({ ...prev, loading: true }));
+    try {
+      const res = await fetch(`${API_BASE}/voices`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: { languages: Record<string, VoiceInfo[]> } = await res.json();
 
-    const fetchVoices = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/voices`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data: { languages: Record<string, VoiceInfo[]> } = await res.json();
+      const byLanguage: Record<string, VoiceInfo[]> = {};
+      const all: VoiceInfo[] = [];
 
-        if (cancelled) return;
-
-        const byLanguage: Record<string, VoiceInfo[]> = {};
-        const all: VoiceInfo[] = [];
-
-        for (const [lang, voices] of Object.entries(data.languages)) {
-          const available = voices.filter((v) => v.available !== false);
-          if (available.length > 0) {
-            byLanguage[lang] = available.length > 0 ? available : voices;
-            all.push(...available);
-          }
+      for (const [lang, voices] of Object.entries(data.languages)) {
+        const available = voices.filter((v) => v.available !== false);
+        if (available.length > 0) {
+          byLanguage[lang] = available.length > 0 ? available : voices;
+          all.push(...available);
         }
-
-        setState({
-          all,
-          byLanguage,
-          languages: Object.keys(byLanguage).sort(),
-          loading: false,
-        });
-      } catch (err) {
-        console.warn("Failed to fetch voices:", err);
-        if (!cancelled) setState((prev) => ({ ...prev, loading: false }));
       }
-    };
 
-    fetchVoices();
-    return () => {
-      cancelled = true;
-    };
+      setState({
+        all,
+        byLanguage,
+        languages: Object.keys(byLanguage).sort(),
+        loading: false,
+      });
+    } catch (err) {
+      console.warn("Failed to fetch voices:", err);
+      setState((prev) => ({ ...prev, loading: false }));
+    }
   }, []);
 
-  return state;
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchVoices();
+    return () => controller.abort();
+  }, [fetchVoices]);
+
+  return { ...state, refetch: fetchVoices };
 }

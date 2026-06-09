@@ -9,19 +9,25 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
-from app.api.schemas import GroupedVoicesResponse, HealthResponse, TTSRequest, VoiceInfo
+from app.api.schemas import (
+    GroupedVoicesResponse,
+    HealthResponse,
+    ModelCatalogResponse,
+    TTSRequest,
+    VoiceInfo,
+)
 from app.config import settings
 from app.core.audio import synthesise_text
 from app.core.tts import (
+    PiperTTS,
     check_edge_deps,
     check_mms_deps,
     check_piper_binary,
-    get_engine,
 )
-from app.core.voice_profiles import get_voices_by_language
+from app.core.voice_profiles import get_model_catalog, get_voices_by_language
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +132,88 @@ async def tts(request: TTSRequest) -> Response:
     )
 
 
+# ── POST /api/tts-with-model (multipart: upload model from browser) ─────
+
+
+@router.post(
+    "/tts-with-model",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"audio/wav": {}},
+            "description": "WAV audio bytes synthesised with uploaded model",
+        },
+        400: {"description": "Invalid input or missing model files"},
+        500: {"description": "TTS generation failure"},
+    },
+)
+async def tts_with_model(request: Request) -> Response:
+    """Generate speech using a model uploaded from the browser.
+
+    The model files are written to a temporary directory, used for
+    synthesis, then cleaned up — no persistent server storage needed.
+    """
+    form = await request.form()
+
+    text = (form.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Text must not be empty.")
+    if len(text) > settings.max_text_length:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Text exceeds {settings.max_text_length} characters.",
+        )
+
+    raw_speed = form.get("speed", "0.85")
+    try:
+        speed = float(raw_speed)
+    except (TypeError, ValueError):
+        speed = 0.85
+    speed = max(settings.min_speed, min(speed, settings.max_speed))
+
+    model_file: UploadFile | None = form.get("model")
+    config_file: UploadFile | None = form.get("model_config")
+
+    if not model_file or not model_file.filename:
+        raise HTTPException(status_code=400, detail="`model` file is required.")
+    if not model_file.filename.endswith(".onnx"):
+        raise HTTPException(status_code=400, detail="`model` must be a .onnx file.")
+    if not config_file or not config_file.filename:
+        raise HTTPException(status_code=400, detail="`model_config` file is required.")
+    if not config_file.filename.endswith(".onnx.json"):
+        raise HTTPException(status_code=400, detail="`model_config` must be a .onnx.json file.")
+
+    voice_id = model_file.filename.removesuffix(".onnx")
+
+    onnx_bytes = await model_file.read()
+    json_bytes = await config_file.read()
+
+    if not onnx_bytes:
+        raise HTTPException(status_code=400, detail="The .onnx file is empty.")
+    if not json_bytes:
+        raise HTTPException(status_code=400, detail="The .onnx.json file is empty.")
+
+    try:
+        result = PiperTTS.synthesise_with_model(
+            text,
+            voice_id=voice_id,
+            onnx_bytes=onnx_bytes,
+            json_bytes=json_bytes,
+            speed=speed,
+        )
+    except RuntimeError as exc:
+        logger.exception("TTS synthesis with uploaded model failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    return Response(
+        content=result.audio_bytes,
+        media_type="audio/wav",
+        headers={
+            "Content-Disposition": "attachment; filename=voicio-output.wav",
+        },
+    )
+
+
 # ── GET /api/voices ───────────────────────────────────────────────────────
 
 
@@ -166,3 +254,18 @@ async def health() -> HealthResponse:
         models_found=models_found,
         languages=list(settings.supported_languages.keys()),
     )
+
+
+# ── GET /api/models/catalog ──────────────────────────────────────────────
+
+
+@router.get("/models/catalog", response_model=ModelCatalogResponse)
+async def catalog() -> ModelCatalogResponse:
+    """Return the curated catalog of downloadable Piper voices.
+
+    Model management (download, import, delete) happens entirely in the
+    browser using IndexedDB — the server only provides the metadata list.
+    When generating TTS with an imported model, the frontend uploads the
+    model files via ``POST /api/tts-with-model``.
+    """
+    return ModelCatalogResponse(voices=get_model_catalog())

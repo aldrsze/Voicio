@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Cloud, HardDrive, Info, Zap } from "lucide-react";
+import { ChevronDown, Cloud, HardDrive, Info, Package, Zap } from "lucide-react";
 import type { VoiceInfo } from "../types";
 import { voiceDisplayName } from "../hooks/useVoices";
+import { ModelManager } from "./ModelManager";
 
 const LANG_FLAGS: Record<string, string> = {
   en: "🇺🇸",
@@ -40,6 +41,7 @@ interface Props {
   selectedVoice: string;
   onChange: (voiceId: string) => void;
   disabled?: boolean;
+  onModelChanged?: () => void;
 }
 
 export function VoiceSelector({
@@ -47,8 +49,10 @@ export function VoiceSelector({
   selectedVoice,
   onChange,
   disabled,
+  onModelChanged,
 }: Props) {
   const [engineFilter, setEngineFilter] = useState<EngineFilter>("all");
+  const [showModelManager, setShowModelManager] = useState(false);
 
   // Count voices per engine
   const counts = useMemo(() => {
@@ -141,6 +145,25 @@ export function VoiceSelector({
             </span>
           </button>
         ))}
+
+        {/* ── Models manager toggle ── */}
+        <button
+          type="button"
+          onClick={() => setShowModelManager((v) => !v)}
+          className={`
+            ml-auto flex items-center gap-1.5 px-2.5 py-1.5
+            font-sans text-xs font-semibold tracking-wide
+            transition-all duration-150
+            ${
+              showModelManager
+                ? "bg-black text-white dark:bg-white dark:text-black"
+                : "border border-black/10 bg-white text-black/60 hover:bg-black/5 dark:border-white/10 dark:bg-transparent dark:text-white/70 dark:hover:bg-white/10"
+            }
+          `}
+        >
+          <Package className="h-3.5 w-3.5" />
+          Models
+        </button>
       </div>
 
       {/* ── Voice dropdown ── */}
@@ -273,6 +296,11 @@ export function VoiceSelector({
             </span>
           )}
         </div>
+      )}
+
+      {/* ── Model Manager ── */}
+      {showModelManager && (
+        <ModelManager onModelChanged={() => onModelChanged?.()} />
       )}
     </div>
   );

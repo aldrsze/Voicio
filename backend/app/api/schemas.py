@@ -69,5 +69,29 @@ class HealthResponse(BaseModel):
     piper_available: bool = Field(description="Whether the piper binary was found on PATH")
     mms_available: bool = Field(description="Whether the MMS-TTS dependencies are installed")
     edge_available: bool = Field(description="Whether the edge-tts library is installed")
-    models_found: int = Field(description="Number of Piper .onnx model files detected in models dir")
+    models_found: int = Field(description="Number of Piper .onnx model files detected in user models dir")
     languages: list[str] = Field(description="List of configured language codes")
+
+
+# ── Model Management ───────────────────────────────────────────────────
+
+
+class CatalogVoice(BaseModel):
+    """Describes a downloadable Piper voice from the public catalog."""
+
+    id: str = Field(description="Unique voice identifier (e.g. 'en_US-lessac-medium')")
+    name: str = Field(description="Display name (e.g. 'Lessac')")
+    language: str = Field(description="Language code (e.g. 'en', 'es', 'de')")
+    region: str = Field(default="", description="Region code (e.g. 'US', 'GB')")
+    quality: str = Field(default="medium", description="Quality tier: x_low, low, medium, high")
+    gender: str = Field(default="mixed", description="Voice gender: female, male, non-binary, mixed")
+    vibe: list[str] = Field(default_factory=list, description="Descriptive tags like 'warm', 'bright'")
+    description: str = Field(default="", description="Short description of the voice character")
+    size_mb: float = Field(default=50, description="Estimated download size in MB")
+    installed: bool = Field(default=False, description="Whether model files are present on disk")
+
+
+class ModelCatalogResponse(BaseModel):
+    """Response for ``GET /api/models/catalog``."""
+
+    voices: list[CatalogVoice]

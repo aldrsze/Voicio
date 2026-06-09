@@ -535,51 +535,13 @@ class DiscoveredVoice:
 
 
 def discover_models() -> list[DiscoveredVoice]:
-    """Scan the models directory and return all discovered Piper voices.
+    """Piper model discovery is disabled — all Piper voices come from
+    browser IndexedDB storage via ``POST /api/tts-with-model``.
 
-    Walks the ``models/`` directory tree, finds all ``.onnx`` files,
-    and enriches each with metadata from voice profiles (curated or inferred).
+    Returns an empty list. Users download/import models through the
+    Model Manager in the frontend, which stores them in IndexedDB.
     """
-    model_dir = settings.models_dir
-    discovered: list[DiscoveredVoice] = []
-    seen: set[str] = set()
-
-    if not model_dir.is_dir():
-        logger.warning("Models directory %s does not exist.", model_dir)
-        return discovered
-
-    # Walk recursively to support any directory layout
-    for onnx_file in sorted(model_dir.rglob("*.onnx")):
-        voice_id = onnx_file.stem  # e.g. "en_US-lessac-high"
-
-        # Skip if we've already seen this voice_id (e.g. duplicates across dirs)
-        if voice_id in seen:
-            continue
-        seen.add(voice_id)
-
-        quality = _parse_quality(voice_id)
-        lang = _parse_language_code(voice_id)
-        region = _parse_region(voice_id)
-        profile = get_voice_profile(voice_id)
-
-        # Look for companion .onnx.json config file
-        config_path = onnx_file.with_suffix(".onnx.json")
-
-        discovered.append(
-            DiscoveredVoice(
-                voice_id=voice_id,
-                language=lang,
-                region=region,
-                quality=quality,
-                gender=str(profile["gender"]),
-                vibe=list(profile["vibe"]),
-                description=str(profile["description"]),
-                model_path=onnx_file if onnx_file.exists() else None,
-                config_path=config_path if config_path.exists() else None,
-            )
-        )
-
-    return discovered
+    return []
 
 
 def get_voices_by_language() -> dict[str, list[dict]]:
@@ -812,3 +774,227 @@ def resolve_voice_engine(voice_id: str) -> str | None:
             if v["id"] == voice_id:
                 return v.get("engine", "piper")
     return None
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Model Catalog & Lifecycle (download, import, delete)
+# ══════════════════════════════════════════════════════════════════════════
+
+# Rough size estimates by quality tier (MB for .onnx + .json combined)
+_QUALITY_SIZE_MB: dict[str, float] = {
+    "x_low": 5,
+    "low": 15,
+    "medium": 50,
+    "high": 200,
+}
+
+# Voices excluded from the public catalog (archive, test-only, or non-standard)
+_CATALOG_EXCLUDE: set[str] = {
+    # Archive voices (unmaintained / experimental)
+    "en_US-l2arctic-medium",
+    "en_US-reza_ibrahim-medium",
+    "en_US-kristin-medium",
+    "en_US-kathleen-low",
+    "en_US-bryce-medium",
+    "en_US-danny-low",
+    "en_US-joe-medium",
+    "en_US-john-medium",
+    "en_US-norman-medium",
+    "en_US-sam-medium",
+    "en_US-kusal-medium",
+    "en_US-ryan-high",
+    "en_US-ryan-medium",
+    "en_US-ryan-low",
+    "en_GB-alan-medium",
+    "en_GB-alan-low",
+    "en_GB-aru-medium",
+    "en_GB-semaine-medium",
+    "en_GB-southern_english_female-low",
+    "en_GB-vctk-medium",
+    "en_GB-jenny_dioco-medium",
+    # Non-existent on Hugging Face (only medium + low tiers exist for Amy)
+    "en_US-amy-high",
+}
+
+
+def _hf_lang_dir(voice_id: str) -> str:
+    """Determine the Hugging Face repo subdirectory for a voice.
+
+    Piper voices on HF are organised as ``{lang_dir}/{lang_REGION}/{name}/{quality}/``.
+    ``en_US-*`` → ``en``,  ``en_GB-*`` → ``en_GB``, all others use the
+    two-letter ISO code (``es``, ``de``, ``fr``, …).
+    """
+    prefix = voice_id.split("-")[0]  # e.g. "en_US", "en_GB", "es_ES"
+    if prefix == "en_GB":
+        return "en_GB"
+    return prefix.split("_")[0]
+
+
+def _hf_voice_name(voice_id: str) -> str:
+    """Extract the voice name portion used as the HF subdirectory.
+
+    ``en_US-amy-medium`` → ``"amy"``
+    ``en_GB-northern_english_male-medium`` → ``"northern_english_male"``
+    """
+    # Strip the quality suffix (last ``-`` segment)
+    without_quality = voice_id.rsplit("-", 1)[0]
+    # Strip the language-region prefix (first ``-`` segment)
+    segments = without_quality.split("-", 1)
+    return segments[1] if len(segments) > 1 else segments[0]
+
+
+def _hf_download_url(voice_id: str, filename: str) -> str:
+    """Full Hugging Face raw URL for a Piper model file.
+
+    HF organises models as ``{lang}/{lang_REGION}/{name}/{quality}/{file}``:
+      ``en/en_US/lessac/high/en_US-lessac-high.onnx``
+    """
+    lang_dir = _hf_lang_dir(voice_id)
+    lang_region = voice_id.split("-")[0]
+    name = _hf_voice_name(voice_id)
+    quality = _parse_quality(voice_id)
+    return (
+        f"https://huggingface.co/rhasspy/piper-voices/resolve/main/"
+        f"{lang_dir}/{lang_region}/{name}/{quality}/{filename}"
+    )
+
+
+def _installed_voice_ids() -> set[str]:
+    """Return the set of voice IDs whose .onnx files exist on disk."""
+    model_dir = settings.models_dir
+    if not model_dir.is_dir():
+        return set()
+    return {f.stem for f in model_dir.rglob("*.onnx")}
+
+
+def get_model_catalog() -> list[dict]:
+    """Return the full catalog of downloadable Piper voices.
+
+    Each entry mirrors the ``VoiceInfo`` shape with an extra ``size_mb``
+    estimate. The ``installed`` field is always ``False`` from the server —
+    the frontend determines installed status from IndexedDB, and marks a
+    voice as installed only when the user has downloaded or imported it
+    into the browser store.
+    """
+    catalog: list[dict] = []
+
+    for voice_id, profile in VOICE_METADATA.items():
+        if voice_id in _CATALOG_EXCLUDE:
+            continue
+
+        quality = _parse_quality(voice_id)
+        catalog.append({
+            "id": voice_id,
+            "name": _parse_voice_name(voice_id),
+            "language": _parse_language_code(voice_id),
+            "region": _parse_region(voice_id),
+            "quality": quality,
+            "gender": profile.get("gender", "mixed"),
+            "vibe": profile.get("vibe", []),
+            "description": profile.get("description", ""),
+            "size_mb": _QUALITY_SIZE_MB.get(quality, 50),
+            "installed": False,
+        })
+
+    return catalog
+
+
+def download_piper_model(voice_id: str) -> None:
+    """Download a Piper voice model (``.onnx`` + ``.onnx.json``) from Hugging Face.
+
+    Raises ``ValueError`` if the voice is unknown, or ``RuntimeError`` if
+    the download fails.
+    """
+    import urllib.error
+    import urllib.request
+
+    if voice_id not in VOICE_METADATA or voice_id in _CATALOG_EXCLUDE:
+        raise ValueError(f"Unknown voice: {voice_id!r}. Check GET /api/models/catalog.")
+
+    model_dir = settings.models_dir
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    files = [f"{voice_id}.onnx", f"{voice_id}.onnx.json"]
+
+    for filename in files:
+        url = _hf_download_url(voice_id, filename)
+        dest = model_dir / filename
+        logger.info("Downloading %s → %s", url, dest)
+
+        try:
+            urllib.request.urlretrieve(url, dest)
+        except urllib.error.HTTPError as exc:
+            # Clean up partial downloads
+            if dest.exists():
+                dest.unlink()
+            if exc.code == 404:
+                raise RuntimeError(
+                    f"Model file {filename!r} was not found on Hugging Face "
+                    f"(HTTP 404). This quality tier may not exist for "
+                    f"{voice_id!r}. Try a different quality (medium/low)."
+                ) from exc
+            raise RuntimeError(
+                f"HTTP {exc.code} downloading {filename!r} for "
+                f"{voice_id!r}: {exc}"
+            ) from exc
+        except Exception as exc:
+            # Clean up partial downloads
+            if dest.exists():
+                dest.unlink()
+            raise RuntimeError(
+                f"Failed to download {filename!r} for {voice_id!r}: {exc}"
+            ) from exc
+
+    logger.info("Voice model %r installed successfully.", voice_id)
+
+
+def remove_piper_model(voice_id: str) -> None:
+    """Delete a Piper voice model (``.onnx`` + ``.onnx.json``) from disk.
+
+    Raises ``ValueError`` if neither file exists.
+    """
+    model_dir = settings.models_dir
+    removed = False
+
+    for ext in (".onnx", ".onnx.json"):
+        # Search recursively — models may be in subdirectories
+        for f in model_dir.rglob(f"{voice_id}{ext}"):
+            f.unlink()
+            removed = True
+            logger.info("Removed model file: %s", f)
+
+    if not removed:
+        raise ValueError(f"Voice {voice_id!r} is not installed.")
+
+    logger.info("Voice model %r removed successfully.", voice_id)
+
+
+def import_piper_model(voice_id: str, onnx_bytes: bytes, json_bytes: bytes) -> None:
+    """Import model files from raw bytes, writing them to the models directory.
+
+    Args:
+        voice_id: Voice identifier (e.g. ``"en_US-lessac-medium"``).
+        onnx_bytes: Contents of the ``.onnx`` model file.
+        json_bytes: Contents of the ``.onnx.json`` config file.
+
+    Raises ``ValueError`` if the model already exists on disk.
+    """
+    model_dir = settings.models_dir
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    onnx_dest = model_dir / f"{voice_id}.onnx"
+    json_dest = model_dir / f"{voice_id}.onnx.json"
+
+    if onnx_dest.exists():
+        raise ValueError(
+            f"Model {voice_id!r} already exists at {onnx_dest}. "
+            f"Remove it first or use a different voice ID."
+        )
+
+    onnx_dest.write_bytes(onnx_bytes)
+    json_dest.write_bytes(json_bytes)
+
+    logger.info(
+        "Voice model %r imported successfully (%d + %d bytes).",
+        voice_id, len(onnx_bytes), len(json_bytes),
+    )

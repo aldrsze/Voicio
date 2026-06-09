@@ -9,6 +9,16 @@ export interface TTSState {
   audioUrl: string | null;
 }
 
+/** Extra options for generating TTS with a user-imported model. */
+export interface UploadModelOptions {
+  /** Voice identifier extracted from filename. */
+  voiceId: string;
+  /** Raw bytes of the .onnx model file. */
+  onnxBytes: ArrayBuffer;
+  /** Raw bytes of the .onnx.json config file. */
+  configBytes: ArrayBuffer;
+}
+
 export function useTTS() {
   const [state, setState] = useState<TTSState>({
     status: "idle",
@@ -49,6 +59,8 @@ export function useTTS() {
       language?: string,
       voice?: string,
       speed?: number,
+      /** When provided, the model is uploaded and used for this generation. */
+      uploadedModel?: UploadModelOptions,
     ) => {
       cleanup();
       setState({ status: "generating", error: null, audioUrl: null });
@@ -57,22 +69,48 @@ export function useTTS() {
       abortRef.current = controller;
 
       try {
-        const body: Record<string, unknown> = {
-          text,
-          language: language ?? "en",
-          speed: speed ?? 0.85,
-        };
+        let res: Response;
 
-        if (voice) {
-          body.voice = voice;
+        if (uploadedModel) {
+          // ── Use multipart upload endpoint ──
+          const formData = new FormData();
+          formData.append("text", text);
+          formData.append("speed", String(speed ?? 0.85));
+          formData.append(
+            "model",
+            new Blob([uploadedModel.onnxBytes]),
+            `${uploadedModel.voiceId}.onnx`,
+          );
+          formData.append(
+            "model_config",
+            new Blob([uploadedModel.configBytes]),
+            `${uploadedModel.voiceId}.onnx.json`,
+          );
+
+          res = await fetch(`${API_BASE}/tts-with-model`, {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+        } else {
+          // ── Standard JSON endpoint ──
+          const body: Record<string, unknown> = {
+            text,
+            language: language ?? "en",
+            speed: speed ?? 0.85,
+          };
+
+          if (voice) {
+            body.voice = voice;
+          }
+
+          res = await fetch(`${API_BASE}/tts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+            signal: controller.signal,
+          });
         }
-
-        const res = await fetch(`${API_BASE}/tts`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          signal: controller.signal,
-        });
 
         if (!res.ok) {
           const body = await res.json().catch(() => null);

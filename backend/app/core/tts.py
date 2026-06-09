@@ -13,6 +13,7 @@ import asyncio
 import io
 import logging
 import subprocess
+import tempfile
 import wave
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -207,6 +208,85 @@ class PiperTTS(TTSBackend):
             return int(cfg.get("audio", {}).get("sample_rate", 22050))
         except Exception:
             return 22050
+
+    @staticmethod
+    def synthesise_with_model(
+        text: str,
+        *,
+        voice_id: str,
+        onnx_bytes: bytes,
+        json_bytes: bytes,
+        speed: float = 1.0,
+        binary: str | None = None,
+    ) -> SynthesisResult:
+        """Synthesise text using model bytes written to a temp directory.
+
+        This is used for user-uploaded models from the browser. Files are
+        cleaned up after synthesis completes.
+        """
+        _binary = binary or settings.piper_binary
+
+        length_scale = round(1.0 / max(settings.min_speed, min(speed, settings.max_speed)), 3)
+
+        with tempfile.TemporaryDirectory(prefix="voicio_model_") as tmpdir:
+            model_path = Path(tmpdir) / f"{voice_id}.onnx"
+            config_path = Path(tmpdir) / f"{voice_id}.onnx.json"
+
+            model_path.write_bytes(onnx_bytes)
+            config_path.write_bytes(json_bytes)
+
+            cmd = [
+                _binary,
+                "--model", str(model_path),
+                "--config", str(config_path),
+                "--output-raw",
+                "--length-scale", str(length_scale),
+            ]
+
+            logger.debug("Running piper (temp model): %s", " ".join(cmd))
+
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    input=text.encode("utf-8"),
+                    capture_output=True,
+                    timeout=120,
+                    check=True,
+                )
+            except FileNotFoundError as exc:
+                raise RuntimeError(
+                    f"Piper binary {_binary!r} not found. "
+                    f"Install piper-tts (`pip install piper-tts`)."
+                ) from exc
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(f"Piper timed out after 120 s for text: {text[:50]!r}…")
+            except subprocess.CalledProcessError as exc:
+                stderr = exc.stderr.decode("utf-8", errors="replace")
+                raise RuntimeError(f"Piper failed: {stderr[:500]}") from exc
+
+            audio_data = np.frombuffer(proc.stdout, dtype=np.int16)
+
+            # Read sample rate from the uploaded config
+            import json
+            try:
+                cfg = json.loads(json_bytes.decode("utf-8"))
+                sample_rate = int(cfg.get("audio", {}).get("sample_rate", 22050))
+            except Exception:
+                sample_rate = 22050
+
+            # Convert to WAV
+            buf = io.BytesIO()
+            with wave.open(buf, "wb") as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(sample_rate)
+                wf.writeframes(audio_data.tobytes())
+
+            return SynthesisResult(
+                audio_bytes=buf.getvalue(),
+                sample_rate=sample_rate,
+                language="en",
+            )
 
 
 # ══════════════════════════════════════════════════════════════════════════

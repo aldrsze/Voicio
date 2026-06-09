@@ -6,10 +6,11 @@ import { VoiceSelector } from "./components/VoiceSelectors";
 import { SpeedSlider } from "./components/SpeedSlider";
 import { StatusBar } from "./components/StatusBar";
 import { HistoryPanel, type HistoryEntry } from "./components/HistoryPanel";
-import { useTTS } from "./hooks/useTTS";
+import { useTTS, type UploadModelOptions } from "./hooks/useTTS";
 import { useVoices, voiceDisplayName } from "./hooks/useVoices";
 import { useTheme } from "./contexts/ThemeContext";
-import type { AppStatus } from "./types";
+import { loadModel } from "./lib/modelStorage";
+import type { AppStatus, VoiceInfo } from "./types";
 
 /** Determine the voice ID for a language's first available voice */
 function defaultVoiceForLang(
@@ -37,9 +38,70 @@ export default function App() {
 
   const speedDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { all, byLanguage, loading } = useVoices();
+  const { byLanguage, loading, refetch } = useVoices();
   const { status, error, audioUrl, generate, play, stop } = useTTS();
   const { theme, toggleTheme } = useTheme();
+
+  // ── Imported (browser-stored) voice tracking ──
+  const [importedVoiceIds, setImportedVoiceIds] = useState<Set<string>>(new Set());
+
+  const refreshImported = useCallback(async () => {
+    const { listInstalledIds } = await import("./lib/modelStorage");
+    setImportedVoiceIds(await listInstalledIds());
+  }, []);
+
+  // Load imported voice IDs on mount
+  useEffect(() => {
+    refreshImported();
+  }, [refreshImported]);
+
+  // Merge imported voices into byLanguage so they appear in the selector
+  const mergedByLanguage = useMemo(() => {
+    if (importedVoiceIds.size === 0) return byLanguage;
+    const merged: Record<string, VoiceInfo[]> = {};
+    for (const [lang, voices] of Object.entries(byLanguage)) {
+      merged[lang] = [...voices];
+    }
+    for (const voiceId of importedVoiceIds) {
+      const lang = voiceId.split("_")[0];
+      if (!merged[lang]) merged[lang] = [];
+      // Only add if not already present (avoid duplicates)
+      if (!merged[lang].some((v) => v.id === voiceId)) {
+        merged[lang].push({
+          id: voiceId,
+          name: voiceDisplayName(voiceId),
+          language: lang,
+          region: voiceId.split("_")[1]?.split("-")[0] ?? "",
+          quality: voiceId.split("-").pop() ?? "medium",
+          engine: "piper",
+          gender: "mixed",
+          vibe: [],
+          description: "User-imported voice",
+          available: true,
+        });
+      }
+    }
+    return merged;
+  }, [byLanguage, importedVoiceIds]);
+
+  // ── Generate helper that handles imported vs bundled voices ──
+  const generateWithVoice = useCallback(
+    async (voiceId: string, text: string, lang: string, spd: number) => {
+      let modelOpts: UploadModelOptions | undefined;
+      if (importedVoiceIds.has(voiceId)) {
+        const stored = await loadModel(voiceId);
+        if (stored) {
+          modelOpts = {
+            voiceId: stored.voiceId,
+            onnxBytes: stored.onnx,
+            configBytes: stored.config,
+          };
+        }
+      }
+      generate(text, lang, voiceId, spd, modelOpts);
+    },
+    [importedVoiceIds, generate],
+  );
 
   // Detect status transitions to "ready" to capture history entries
   const prevStatusRef = useRef<AppStatus>(status);
@@ -95,8 +157,12 @@ export default function App() {
 
   // ── Set default voice when voices load ──
   const [initialized, setInitialized] = useState(false);
-  if (!initialized && !loading && all.length > 0 && !selectedVoice) {
-    const def = defaultVoiceForLang(byLanguage, "en") || all[0]?.id;
+  const mergedAll = useMemo(
+    () => Object.values(mergedByLanguage).flat(),
+    [mergedByLanguage],
+  );
+  if (!initialized && !loading && mergedAll.length > 0 && !selectedVoice) {
+    const def = defaultVoiceForLang(mergedByLanguage, "en") || mergedAll[0]?.id;
     if (def) {
       setSelectedVoice(def);
     }
@@ -123,19 +189,19 @@ export default function App() {
   // Infer language from the selected voice
   const selectedLanguage = useMemo(() => {
     if (!selectedVoice) return "en";
-    for (const [lang, voices] of Object.entries(byLanguage)) {
+    for (const [lang, voices] of Object.entries(mergedByLanguage)) {
       if (voices.some((v) => v.id === selectedVoice)) return lang;
     }
     return "en";
-  }, [selectedVoice, byLanguage]);
+  }, [selectedVoice, mergedByLanguage]);
 
   const hasText = text.trim().length > 0;
 
   // ── Manual generate handler ──
   const handleGenerate = useCallback(() => {
     if (!hasText || !selectedVoice || status === "generating") return;
-    generate(text, selectedLanguage, selectedVoice, speed);
-  }, [text, selectedLanguage, selectedVoice, speed, hasText, status, generate]);
+    generateWithVoice(selectedVoice, text, selectedLanguage, speed);
+  }, [text, selectedLanguage, selectedVoice, speed, hasText, status, generateWithVoice]);
 
   // ── Voice change handler (immediate auto-regeneration) ──
   const handleVoiceChange = useCallback(
@@ -149,16 +215,16 @@ export default function App() {
 
       if (autoGenerate && hasText && text.trim().length > 0) {
         let lang = "en";
-        for (const [l, voices] of Object.entries(byLanguage)) {
+        for (const [l, voices] of Object.entries(mergedByLanguage)) {
           if (voices.some((v) => v.id === voiceId)) {
             lang = l;
             break;
           }
         }
-        generate(text, lang, voiceId, speed);
+        generateWithVoice(voiceId, text, lang, speed);
       }
     },
-    [autoGenerate, hasText, text, speed, byLanguage, generate],
+    [autoGenerate, hasText, text, speed, mergedByLanguage, generateWithVoice],
   );
 
   // ── Speed change handler (debounced auto-regeneration) ──
@@ -171,12 +237,12 @@ export default function App() {
           clearTimeout(speedDebounceRef.current);
         }
         speedDebounceRef.current = setTimeout(
-          () => generate(text, selectedLanguage, selectedVoice, newSpeed),
+          () => generateWithVoice(selectedVoice, text, selectedLanguage, newSpeed),
           300,
         );
       }
     },
-    [autoGenerate, hasText, selectedVoice, text, selectedLanguage, generate],
+    [autoGenerate, hasText, selectedVoice, text, selectedLanguage, generateWithVoice],
   );
 
   // ── Keyboard shortcut: Ctrl+Enter / Cmd+Enter ──
@@ -185,13 +251,13 @@ export default function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
         if (hasText && selectedVoice && status !== "generating") {
           e.preventDefault();
-          generate(text, selectedLanguage, selectedVoice, speed);
+          generateWithVoice(selectedVoice, text, selectedLanguage, speed);
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [hasText, selectedVoice, selectedLanguage, speed, status, generate]);
+  }, [hasText, selectedVoice, selectedLanguage, speed, status, generateWithVoice]);
 
   const handleDownload = useCallback(() => {
     if (!audioUrl) return;
@@ -280,10 +346,14 @@ export default function App() {
 
               {/* Voice selector with engine filter tabs */}
               <VoiceSelector
-                voicesByLanguage={byLanguage}
+                voicesByLanguage={mergedByLanguage}
                 selectedVoice={selectedVoice}
                 onChange={handleVoiceChange}
                 disabled={status === "generating" || loading}
+                onModelChanged={() => {
+                  refetch();
+                  refreshImported();
+                }}
               />
 
               {/* Speed slider */}
