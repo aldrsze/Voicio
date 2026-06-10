@@ -7,7 +7,7 @@ The user interface follows a **Brutalist Monochrome** design system, delivering 
 ---
 
 ## 🎥 Video Presentation
-<video src="Voicio.mp4" controls width="100%"></video>
+[![Voicio Demo](gif.gif)](Voicio.mp4)
 
 ---
 
