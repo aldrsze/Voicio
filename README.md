@@ -28,7 +28,6 @@ The user interface follows a **Brutalist Monochrome** design system, delivering 
 - **TTS Engines**:
   - **Piper TTS**: Local, fast, neural TTS running statelessly via client-uploaded model bytes.
   - **Microsoft Edge TTS**: Cloud-based neural API providing 300+ voices across dozens of languages.
-  - **MMS-TTS**: Hugging Face Multilingual Multispeaker TTS integration.
 
 ---
 
