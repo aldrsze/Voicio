@@ -7,8 +7,7 @@ The user interface follows a **Brutalist Monochrome** design system, delivering 
 ---
 
 ## 🎥 Video Presentation
-<!-- Replace the line below with your video embed or link -->
-[![Voicio Presentation Placeholder](https://img.shields.io/badge/Voicio-Video_Presentation_Placeholder-black?style=for-the-badge&logo=youtube)](https://www.youtube.com/)
+<video src="Voicio.mp4" controls width="100%"></video>
 
 ---
 
